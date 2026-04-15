@@ -83,7 +83,7 @@ export const createPaymentRequestSchema = z.object({
   bankName: z.string().optional().nullable(),
   amount: z.number().positive("Số tiền phải > 0"),
   description: z.string().min(1, "Nội dung thanh toán không được trống"),
-  invoiceScenario: z.enum(["HasInvoice", "InvoiceLater", "NoInvoice"]).default("HasInvoice"),
+  invoiceScenario: z.enum(["HasInvoice", "InvoiceLater", "NoInvoice"]),
   invoiceNumber: z.string().optional().nullable(),
   invoiceDate: z.string().optional().nullable(), // ISO string
 })
