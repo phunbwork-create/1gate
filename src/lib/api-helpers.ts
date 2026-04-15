@@ -6,6 +6,7 @@ import { Role } from "@prisma/client"
 
 export interface ApiUser {
   id: string
+  name: string
   role: Role
   companyId: string
   departmentId?: string | null
@@ -24,6 +25,7 @@ export async function getAuthUser(): Promise<ApiUser | null> {
   const u = session.user as any
   return {
     id: u.id,
+    name: u.name ?? "",
     role: u.role as Role,
     companyId: u.companyId,
     departmentId: u.departmentId,
