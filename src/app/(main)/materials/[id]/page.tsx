@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { RequestStatus, Role } from "@prisma/client"
+import { RequestStatus, Role } from "@/types/domain"
 import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"

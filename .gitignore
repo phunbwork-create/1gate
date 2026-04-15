@@ -41,3 +41,5 @@ next-env.d.ts
 
 # uploaded files (local storage)
 /public/uploads/
+
+.vercel

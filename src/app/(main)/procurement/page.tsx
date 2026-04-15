@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { RequestStatus } from "@prisma/client"
+import { RequestStatus } from "@/types/domain"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
