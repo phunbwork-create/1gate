@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Prevent Prisma from being bundled into client-side code
-  serverExternalPackages: ["@prisma/client", "prisma"],
+  experimental: {
+    // Prevent Prisma from being bundled into client-side code (Next.js 14)
+    serverComponentsExternalPackages: ["@prisma/client", "prisma"],
+  },
 }
 
 export default nextConfig
