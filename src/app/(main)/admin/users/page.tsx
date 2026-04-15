@@ -57,7 +57,7 @@ interface PaginationInfo {
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
-const ROLES = Object.values(Role)
+const ROLES: Role[] = ["Admin", "Staff", "DeptHead", "Warehouse", "Purchasing", "Accountant", "ChiefAccountant", "Director"]
 
 const ROLE_LABELS: Record<Role, string> = {
   Admin: "Quản trị viên",
@@ -103,7 +103,7 @@ export default function UsersPage() {
   const [formName, setFormName] = useState("")
   const [formEmail, setFormEmail] = useState("")
   const [formPassword, setFormPassword] = useState("")
-  const [formRole, setFormRole] = useState<Role>(Role.Staff)
+  const [formRole, setFormRole] = useState<Role>("Staff")
   const [formCompanyId, setFormCompanyId] = useState("")
   const [formDepartmentId, setFormDepartmentId] = useState("")
   const [formActive, setFormActive] = useState(true)
@@ -168,7 +168,7 @@ export default function UsersPage() {
     setFormName("")
     setFormEmail("")
     setFormPassword("")
-    setFormRole(Role.Staff)
+    setFormRole("Staff")
     setFormCompanyId(companies[0]?.id || "")
     setFormDepartmentId("")
     setFormActive(true)

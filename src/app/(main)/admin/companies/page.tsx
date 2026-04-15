@@ -49,7 +49,7 @@ export default function CompaniesPage() {
 
   const [formName, setFormName] = useState("")
   const [formCode, setFormCode] = useState("")
-  const [formType, setFormType] = useState<CompanyType>(CompanyType.CTTV)
+  const [formType, setFormType] = useState<CompanyType>("CTTV")
   const [formTaxCode, setFormTaxCode] = useState("")
   const [formAddress, setFormAddress] = useState("")
 
@@ -69,7 +69,7 @@ export default function CompaniesPage() {
 
   function openCreate() {
     setEditing(null)
-    setFormName(""); setFormCode(""); setFormType(CompanyType.CTTV)
+    setFormName(""); setFormCode(""); setFormType("CTTV")
     setFormTaxCode(""); setFormAddress(""); setFormError("")
     setDialogOpen(true)
   }
