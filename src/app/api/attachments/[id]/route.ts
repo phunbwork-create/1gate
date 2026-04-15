@@ -19,14 +19,26 @@ export async function DELETE(
     const attachment = await prisma.attachment.findUnique({ where: { id } })
     if (!attachment) return notFound("Tệp đính kèm không tồn tại")
 
-    // Delete physical file from disk (fail silently if already gone)
+    // Delete physical file — Vercel Blob or local filesystem
     if (attachment.fileUrl) {
-      try {
-        const filePath = join(process.cwd(), "public", attachment.fileUrl)
-        await unlink(filePath)
-      } catch {
-        // File may already be deleted from disk — continue to remove DB record
-        console.warn(`[Attachments] File not found on disk: ${attachment.fileUrl}`)
+      const useBlob = !!process.env.BLOB_READ_WRITE_TOKEN
+
+      if (useBlob && attachment.fileUrl.startsWith("https://")) {
+        // Vercel Blob: delete by URL
+        try {
+          const { del } = await import("@vercel/blob")
+          await del(attachment.fileUrl)
+        } catch {
+          console.warn("[Attachments] Blob delete failed:", attachment.fileUrl)
+        }
+      } else if (!attachment.fileUrl.startsWith("https://")) {
+        // Local filesystem fallback
+        try {
+          const filePath = join(process.cwd(), "public", attachment.fileUrl)
+          await unlink(filePath)
+        } catch {
+          console.warn("[Attachments] Local file not found:", attachment.fileUrl)
+        }
       }
     }
 

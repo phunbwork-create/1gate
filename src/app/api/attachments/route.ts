@@ -43,6 +43,39 @@ const ENTITY_FIELD_MAP: Record<EntityType, string> = {
   purchaseRequest: "purchaseRequestId",
 }
 
+// ─── STORAGE ADAPTERS ────────────────────────────────────────────────────────
+
+/**
+ * Upload to Vercel Blob (production) or local filesystem (development).
+ * Returns the public URL of the stored file.
+ */
+async function storeFile(
+  buffer: Buffer,
+  fileName: string,
+  entityType: string,
+  entityId: string,
+  mimeType: string
+): Promise<string> {
+  const useBlob = !!process.env.BLOB_READ_WRITE_TOKEN
+
+  if (useBlob) {
+    // Vercel Blob — lazy import so local dev doesn't require the token
+    const { put } = await import("@vercel/blob")
+    const pathname = `uploads/${entityType}/${entityId}/${fileName}`
+    const blob = await put(pathname, buffer, {
+      access: "public",
+      contentType: mimeType,
+    })
+    return blob.url
+  }
+
+  // Local filesystem fallback (development only)
+  const uploadDir = join(process.cwd(), "public", "uploads", entityType, entityId)
+  await mkdir(uploadDir, { recursive: true })
+  await writeFile(join(uploadDir, fileName), buffer)
+  return `/uploads/${entityType}/${entityId}/${fileName}`
+}
+
 // ─── POST /api/attachments ────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -59,19 +92,15 @@ export async function POST(req: NextRequest) {
     if (!file || !entityType || !entityId) {
       return badRequest("Thiếu thông tin: file, entityType, entityId")
     }
-
     if (!(entityType in ENTITY_FIELD_MAP)) {
       return badRequest("entityType không hợp lệ")
     }
-
     if (!VALID_DOCUMENT_TYPES.includes(documentType as (typeof VALID_DOCUMENT_TYPES)[number])) {
       return badRequest("documentType không hợp lệ")
     }
-
     if (file.size > MAX_SIZE) {
       return badRequest("File quá lớn, tối đa 10MB")
     }
-
     if (!ALLOWED_TYPES[file.type]) {
       return badRequest("Định dạng file không được hỗ trợ. Chấp nhận: PDF, ảnh, Word, Excel")
     }
@@ -80,15 +109,8 @@ export async function POST(req: NextRequest) {
     const safeOriginalName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
     const fileName = `${uuid}-${safeOriginalName}`
 
-    // Save to public/uploads/{entityType}/{entityId}/
-    const uploadDir = join(process.cwd(), "public", "uploads", entityType, entityId)
-    await mkdir(uploadDir, { recursive: true })
-
-    const filePath = join(uploadDir, fileName)
     const buffer = Buffer.from(await file.arrayBuffer())
-    await writeFile(filePath, buffer)
-
-    const fileUrl = `/uploads/${entityType}/${entityId}/${fileName}`
+    const fileUrl = await storeFile(buffer, fileName, entityType, entityId, file.type)
 
     const relField = ENTITY_FIELD_MAP[entityType as EntityType]
     const attachment = await prisma.attachment.create({
