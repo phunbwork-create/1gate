@@ -20,12 +20,12 @@ export async function GET(_req: NextRequest) {
     // 2. Financial Overview
     const executedPlans = await prisma.paymentPlan.findMany({
       where: { ...companyFilter, status: "Executed" },
-      select: { items: { select: { amount: true } } }
+      select: { totalAmount: true }
     })
     
     let totalSpent = 0
     executedPlans.forEach(plan => {
-      plan.items.forEach(item => totalSpent += Number(item.amount || 0))
+      totalSpent += Number(plan.totalAmount || 0)
     })
 
     const pendingAdvances = await prisma.advanceRequest.aggregate({
