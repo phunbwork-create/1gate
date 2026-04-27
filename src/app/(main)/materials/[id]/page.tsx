@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
+import Link from "next/link"
 import { RequestStatus, Role } from "@/types/domain"
 import { useSession } from "next-auth/react"
+import { priceVisible } from "@/lib/permissions"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -18,14 +21,76 @@ import {
 } from "@/components/ui/dialog"
 import { StatusBadge } from "@/components/business/status-badge"
 import { ApprovalTimeline } from "@/components/business/approval-timeline"
-import { Loader2, ArrowLeft, Send, CheckCircle2, XCircle, RotateCcw } from "lucide-react"
+import { PdfPreviewDialog } from "@/components/business/pdf-preview-dialog"
+import {
+  Loader2, ArrowLeft, Send, CheckCircle2, XCircle, RotateCcw,
+  FileCheck, Building2, Calendar, Banknote, EyeOff, Eye,
+  FileText, FileImage, FileSpreadsheet, File, ExternalLink,
+} from "lucide-react"
+
+// ─── Contract metadata type (mirrors procurement detail) ─────────────────────
+interface ContractMeta {
+  note?: string
+  contractType?: string
+  partnerName?: string
+  partnerTaxCode?: string
+  partnerRepresentative?: string
+  signDate?: string
+  effectiveDate?: string
+  expiryDate?: string
+  contractValue?: number
+  vatRate?: number
+  currency?: string
+}
+
+function parseContractMeta(description: string | null): ContractMeta {
+  if (!description) return {}
+  try { return JSON.parse(description) } catch { return { note: description } }
+}
+
+const CONTRACT_TYPE_LABELS: Record<string, string> = {
+  purchase: "Hợp đồng Mua vào", sale: "Hợp đồng Bán ra",
+  internal: "Nội bộ", other: "Khác",
+}
+
+// ─── File helpers ────────────────────────────────────────────────────────────
+function formatBytes(bytes: number | null): string {
+  if (!bytes) return ""
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function FileIcon({ mimeType }: { mimeType: string | null }) {
+  if (!mimeType) return <File className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+  if (mimeType === "application/pdf")
+    return <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
+  if (mimeType.startsWith("image/"))
+    return <FileImage className="h-4 w-4 text-blue-500 flex-shrink-0" />
+  if (mimeType.includes("spreadsheet") || mimeType.includes("excel"))
+    return <FileSpreadsheet className="h-4 w-4 text-green-600 flex-shrink-0" />
+  return <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+}
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+interface ProcurementAttachment {
+  id: string; fileName: string; fileUrl: string
+  fileSize: number | null; mimeType: string | null
+  documentType: string; uploadedAt: string
+}
+
+interface LinkedProcurement {
+  id: string; code: string; contractCode?: string | null
+  title: string; description: string | null
+  attachments: ProcurementAttachment[]
+}
 
 interface MReqDetail {
   id: string; code: string; purpose: string | null; status: RequestStatus
   requiredDate: string | null; createdById: string
   company: { code: string; name: string }
   createdBy: { id: string; name: string; email: string }
-  procurementPlan: { code: string; title: string } | null
+  procurementPlan: LinkedProcurement | null
   items: {
     id: string; itemName: string; unit: string; requestedQty: number; note: string | null
     materialItem: { code: string; name: string } | null
@@ -49,6 +114,7 @@ export default function MaterialRequestDetailPage() {
   const [approveOpen, setApproveOpen] = useState(false)
   const [approveAction, setApproveAction] = useState<"approve" | "reject" | "return">("approve")
   const [approveComment, setApproveComment] = useState("")
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null)
 
   const fetchReq = useCallback(async () => {
     try {
@@ -63,6 +129,8 @@ export default function MaterialRequestDetailPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentUser = session?.user as any
+  const userRole = (currentUser?.role as Role) || "Staff"
+  const showPrice = priceVisible(userRole)
   const isOwner = currentUser?.id === req?.createdById
   const isDraft = req?.status === "Draft"
   const canSubmit = isOwner && isDraft
@@ -154,7 +222,7 @@ export default function MaterialRequestDetailPage() {
         </div>
 
         <div className="lg:col-span-8">
-          <Accordion type="multiple" defaultValue={["general", "items"]} className="w-full space-y-4">
+          <Accordion type="multiple" defaultValue={["general", "contract", "items"]} className="w-full space-y-4">
             <AccordionItem value="general" className="bg-card border rounded-xl shadow-sm overflow-hidden px-4">
               <AccordionTrigger className="hover:no-underline py-4 font-semibold">
                 Thông tin chung
@@ -170,6 +238,204 @@ export default function MaterialRequestDetailPage() {
                 )}
               </AccordionContent>
             </AccordionItem>
+
+            {/* ── Hồ sơ / Hợp đồng liên kết ── */}
+            {req.procurementPlan && (() => {
+              const pp = req.procurementPlan
+              const meta = parseContractMeta(pp.description)
+              const vatAmount = (meta.contractValue || 0) * ((meta.vatRate || 0) / 100)
+              const totalValue = (meta.contractValue || 0) + vatAmount
+              const pdfFiles = pp.attachments.filter((a) => a.mimeType === "application/pdf")
+              const otherFiles = pp.attachments.filter((a) => a.mimeType !== "application/pdf")
+
+              return (
+                <AccordionItem value="contract" className="bg-card border rounded-xl shadow-sm overflow-hidden px-4">
+                  <AccordionTrigger className="hover:no-underline py-4 font-semibold">
+                    <span className="flex items-center gap-2">
+                      <FileCheck className="h-4 w-4 text-primary" />
+                      Hồ sơ / Hợp đồng liên kết
+                      <Badge variant="secondary" className="text-[10px] px-1.5 h-5">
+                        {pp.contractCode || pp.code}
+                      </Badge>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-2 pb-5 border-t space-y-5">
+
+                    {/* Link to full contract detail */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{pp.title}</p>
+                        {meta.contractType && (
+                          <span className="text-xs text-muted-foreground">
+                            {CONTRACT_TYPE_LABELS[meta.contractType] || meta.contractType}
+                          </span>
+                        )}
+                      </div>
+                      <Link href={`/procurement/${pp.id}`}>
+                        <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                          <ExternalLink className="h-3 w-3" />
+                          Xem chi tiết hồ sơ
+                        </Button>
+                      </Link>
+                    </div>
+
+                    {/* Ghi chú */}
+                    {meta.note && (
+                      <>
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground uppercase tracking-wide">Ghi chú</span>
+                          <p className="text-sm whitespace-pre-wrap">{meta.note}</p>
+                        </div>
+                        <Separator />
+                      </>
+                    )}
+
+                    {/* Bên ký kết */}
+                    {(meta.partnerName || meta.partnerTaxCode || meta.partnerRepresentative) && (
+                      <>
+                        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                          <Building2 className="h-3.5 w-3.5" /> Bên ký kết
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                          {meta.partnerName && (
+                            <div>
+                              <span className="text-muted-foreground block text-xs">Tên đối tác</span>
+                              <span className="font-medium">{meta.partnerName}</span>
+                            </div>
+                          )}
+                          {meta.partnerTaxCode && (
+                            <div>
+                              <span className="text-muted-foreground block text-xs">Mã số thuế</span>
+                              <span className="font-mono">{meta.partnerTaxCode}</span>
+                            </div>
+                          )}
+                          {meta.partnerRepresentative && (
+                            <div>
+                              <span className="text-muted-foreground block text-xs">Người đại diện</span>
+                              <span>{meta.partnerRepresentative}</span>
+                            </div>
+                          )}
+                        </div>
+                        <Separator />
+                      </>
+                    )}
+
+                    {/* Thời hạn */}
+                    {(meta.signDate || meta.effectiveDate || meta.expiryDate) && (
+                      <>
+                        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                          <Calendar className="h-3.5 w-3.5" /> Thời hạn
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                          {meta.signDate && (
+                            <div>
+                              <span className="text-muted-foreground block text-xs">Ngày ký</span>
+                              <span>{new Date(meta.signDate).toLocaleDateString("vi-VN")}</span>
+                            </div>
+                          )}
+                          {meta.effectiveDate && (
+                            <div>
+                              <span className="text-muted-foreground block text-xs">Ngày hiệu lực</span>
+                              <span>{new Date(meta.effectiveDate).toLocaleDateString("vi-VN")}</span>
+                            </div>
+                          )}
+                          {meta.expiryDate && (
+                            <div>
+                              <span className="text-muted-foreground block text-xs">Ngày hết hạn</span>
+                              <span>{new Date(meta.expiryDate).toLocaleDateString("vi-VN")}</span>
+                            </div>
+                          )}
+                        </div>
+                        <Separator />
+                      </>
+                    )}
+
+                    {/* Giá trị hợp đồng */}
+                    {meta.contractValue != null && meta.contractValue > 0 && (
+                      <>
+                        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                          <Banknote className="h-3.5 w-3.5" /> Giá trị hợp đồng
+                        </h4>
+                        {!showPrice ? (
+                          <div className="flex items-center gap-2 py-2 text-amber-700 dark:text-amber-400 text-sm">
+                            <EyeOff className="h-4 w-4 flex-shrink-0" />
+                            <span>Thông tin giá trị đã được ẩn.</span>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="text-muted-foreground block text-xs">Trước thuế</span>
+                              <span className="font-medium">{meta.contractValue.toLocaleString("vi-VN")} {meta.currency || "VND"}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block text-xs">VAT ({meta.vatRate || 0}%)</span>
+                              <span className="font-medium">{vatAmount.toLocaleString("vi-VN")} {meta.currency || "VND"}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block text-xs">Tổng sau thuế</span>
+                              <span className="font-bold text-orange-600">{totalValue.toLocaleString("vi-VN")} {meta.currency || "VND"}</span>
+                            </div>
+                          </div>
+                        )}
+                        <Separator />
+                      </>
+                    )}
+
+                    {/* Tài liệu đính kèm hồ sơ */}
+                    {pp.attachments.length > 0 && (
+                      <>
+                        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                          <FileText className="h-3.5 w-3.5" /> Tài liệu hồ sơ
+                          <Badge variant="secondary" className="text-[10px] px-1.5 h-5">
+                            {pp.attachments.length}
+                          </Badge>
+                        </h4>
+                        <ul className="space-y-1.5">
+                          {[...pdfFiles, ...otherFiles].map((att) => {
+                            const isPdf = att.mimeType === "application/pdf"
+                            return (
+                              <li key={att.id}
+                                className="flex items-center gap-3 p-2.5 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors">
+                                <FileIcon mimeType={att.mimeType} />
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-sm font-medium truncate block">{att.fileName}</span>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatBytes(att.fileSize)}
+                                    {att.fileSize ? " · " : ""}
+                                    {new Date(att.uploadedAt).toLocaleDateString("vi-VN")}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {isPdf && (
+                                    <Button
+                                      variant="ghost" size="sm"
+                                      className="gap-1 text-xs h-7 px-2 text-primary hover:text-primary"
+                                      onClick={() => setPdfPreview({ url: att.fileUrl, name: att.fileName })}
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                      Xem
+                                    </Button>
+                                  )}
+                                  <a href={att.fileUrl} target="_blank" rel="noopener noreferrer">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                                    </Button>
+                                  </a>
+                                </div>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </>
+                    )}
+
+                    {pp.attachments.length === 0 && (
+                      <p className="text-sm text-muted-foreground italic">Hồ sơ chưa có tài liệu đính kèm</p>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              )
+            })()}
 
             <AccordionItem value="items" className="bg-card border rounded-xl shadow-sm overflow-hidden px-4">
               <AccordionTrigger className="hover:no-underline py-4 font-semibold">
@@ -227,6 +493,14 @@ export default function MaterialRequestDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* PDF Preview Dialog */}
+      <PdfPreviewDialog
+        open={!!pdfPreview}
+        onOpenChange={(open) => { if (!open) setPdfPreview(null) }}
+        fileUrl={pdfPreview?.url || ""}
+        fileName={pdfPreview?.name || ""}
+      />
     </div>
   )
 }

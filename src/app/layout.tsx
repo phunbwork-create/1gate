@@ -12,9 +12,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: {
     template: "%s | 1Gate",
-    default: "1Gate — Quản lý Mua sắm & Thanh toán",
+    default: "1Gate — Hệ thống Quản lý Hồ sơ & Thanh toán",
   },
-  description: "Hệ thống quản lý quy trình mua sắm, thanh toán, tạm ứng và quyết toán doanh nghiệp",
+  description: "Hệ thống quản lý hồ sơ hợp đồng, thanh toán, tạm ứng và quyết toán doanh nghiệp",
 }
 
 export default function RootLayout({

@@ -5,6 +5,7 @@ import { approvalActionSchema } from "@/schemas/business.schema"
 import { calculateCurrentStepIndex } from "@/lib/workflow"
 import { getApprovalChain } from "@/lib/permissions"
 import { notifyWorkflow } from "@/lib/notification"
+import { autoGenerateSettlement } from "@/lib/settlement-helper"
 
 // ─── POST /api/advance-requests/[id]/approve ─────────────────────────────────
 export async function POST(
@@ -84,6 +85,14 @@ export async function POST(
           await tx.advanceRequest.update({
             where: { id },
             data: { status: "Approved", approvedAt: new Date() },
+          })
+          // Auto-generate Settlement
+          await autoGenerateSettlement(tx, {
+            sourceType: "AdvanceRequest",
+            sourceId: id,
+            sourceCode: request.code,
+            createdById: request.createdById,
+            amount,
           })
         } else {
           await tx.advanceRequest.update({

@@ -30,6 +30,10 @@ interface PReqDetail {
     unitPrice: number | null; totalPrice: number | null
     materialItem: { code: string; name: string } | null
   }[]
+  materialRequest?: {
+    id: string; code: string; purpose: string | null
+    procurementPlan?: { id: string; code: string; title: string } | null
+  } | null
   approvalSteps: {
     id: string; role: Role; stepOrder: number; action: string | null
     comment: string | null; actedAt: string | null
@@ -151,7 +155,20 @@ export default function PurchaseRequestDetailPage() {
           </div>
         </div>
 
-        <div className="lg:col-span-8">
+        <div className="lg:col-span-8 space-y-6">
+          {req.materialRequest && (
+            <div className="bg-slate-50 dark:bg-slate-900 border rounded-xl p-4 text-sm space-y-2">
+              <h4 className="font-semibold text-primary">Thông tin chuỗi Cung ứng (Upstream)</h4>
+              <div className="grid grid-cols-2 gap-2 text-muted-foreground mt-2">
+                <div><span className="font-medium text-foreground">ĐN Cấp vật tư:</span> {req.materialRequest.code}</div>
+                {req.materialRequest.procurementPlan && (
+                  <div><span className="font-medium text-foreground">Hồ sơ/HĐ:</span> {req.materialRequest.procurementPlan.code} - {req.materialRequest.procurementPlan.title}</div>
+                )}
+                <div className="col-span-2"><span className="font-medium text-foreground">Mục đích gốc:</span> {req.materialRequest.purpose || "Không có"}</div>
+              </div>
+            </div>
+          )}
+
           <Accordion type="multiple" defaultValue={["general", "items"]} className="w-full space-y-4">
             <AccordionItem value="general" className="bg-card border rounded-xl shadow-sm overflow-hidden px-4">
               <AccordionTrigger className="hover:no-underline py-4 font-semibold">

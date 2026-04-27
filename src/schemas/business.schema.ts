@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-// ─── PROCUREMENT PLAN ────────────────────────────────────────────────────────
+// ─── PROCUREMENT PLAN → HỒ SƠ / HỢP ĐỒNG ──────────────────────────────────
 
 const procurementPlanItemSchema = z.object({
   materialItemId: z.string().optional().nullable(),
@@ -12,15 +12,37 @@ const procurementPlanItemSchema = z.object({
 })
 
 export const createProcurementPlanSchema = z.object({
-  title: z.string().min(2, "Tiêu đề phải có ít nhất 2 ký tự"),
+  title: z.string().min(2, "Tên hồ sơ phải có ít nhất 2 ký tự"),
+  contractCode: z.string().min(1, "Mã hồ sơ / mã hợp đồng không được trống"),
   description: z.string().optional().nullable(),
-  items: z.array(procurementPlanItemSchema).min(1, "Phải có ít nhất 1 hàng hóa"),
+  // Contract metadata (stored as JSON in description field)
+  contractType: z.string().optional().nullable(),      // Loại: Mua vào / Bán ra / Nội bộ
+  partnerName: z.string().optional().nullable(),       // Tên đối tác
+  partnerTaxCode: z.string().optional().nullable(),    // MST đối tác
+  partnerRepresentative: z.string().optional().nullable(), // Người đại diện
+  signDate: z.string().optional().nullable(),          // Ngày ký
+  effectiveDate: z.string().optional().nullable(),     // Ngày hiệu lực
+  expiryDate: z.string().optional().nullable(),        // Ngày hết hạn
+  contractValue: z.number().nonnegative().optional().nullable(), // Giá trị trước thuế
+  vatRate: z.number().min(0).max(100).optional().nullable(),     // % VAT
+  currency: z.string().optional().nullable(),          // VND/USD
+  items: z.array(procurementPlanItemSchema).optional().default([]),
 })
 
 export const updateProcurementPlanSchema = z.object({
   title: z.string().min(2, "Tiêu đề phải có ít nhất 2 ký tự").optional(),
   description: z.string().optional().nullable(),
-  items: z.array(procurementPlanItemSchema).min(1, "Phải có ít nhất 1 hàng hóa").optional(),
+  contractType: z.string().optional().nullable(),
+  partnerName: z.string().optional().nullable(),
+  partnerTaxCode: z.string().optional().nullable(),
+  partnerRepresentative: z.string().optional().nullable(),
+  signDate: z.string().optional().nullable(),
+  effectiveDate: z.string().optional().nullable(),
+  expiryDate: z.string().optional().nullable(),
+  contractValue: z.number().nonnegative().optional().nullable(),
+  vatRate: z.number().min(0).max(100).optional().nullable(),
+  currency: z.string().optional().nullable(),
+  items: z.array(procurementPlanItemSchema).optional(),
 })
 
 // ─── MATERIAL REQUEST ────────────────────────────────────────────────────────
@@ -58,6 +80,7 @@ const purchaseRequestItemSchema = z.object({
 })
 
 export const createPurchaseRequestSchema = z.object({
+  materialRequestId: z.string().min(1, "Vui lòng chọn Đề nghị cấp vật tư"),
   procurementPlanId: z.string().optional().nullable(),
   inventoryCheckId: z.string().optional().nullable(),
   vendorId: z.string().optional().nullable(),
@@ -76,7 +99,7 @@ export const updatePurchaseRequestSchema = z.object({
 // ─── PAYMENT REQUEST (ĐNTT - F-05) ──────────────────────────────────────────
 
 export const createPaymentRequestSchema = z.object({
-  purchaseRequestId: z.string().optional().nullable(),
+  purchaseRequestId: z.string().min(1, "Vui lòng chọn Đề nghị mua hàng"),
   vendorId: z.string().optional().nullable(),
   vendorName: z.string().min(1, "Tên nhà cung cấp không được trống"),
   bankAccount: z.string().optional().nullable(),
@@ -103,6 +126,7 @@ export const updatePaymentRequestSchema = z.object({
 // ─── ADVANCE REQUEST (ĐNTU - F-06) ───────────────────────────────────────────
 
 export const createAdvanceRequestSchema = z.object({
+  purchaseRequestId: z.string().min(1, "Vui lòng chọn Đề nghị mua hàng"),
   vendorId: z.string().optional().nullable(),
   vendorName: z.string().optional().nullable(),
   amount: z.number().positive("Số tiền phải > 0"),
@@ -154,8 +178,22 @@ export const createPaymentPlanSchema = z.object({
 // ─── SETTLEMENT (F-08) ───────────────────────────────────────────────────────
 
 export const createSettlementSchema = z.object({
-  advanceRequestId: z.string().min(1, "Vui lòng chọn phiếu tạm ứng"),
-  actualAmount: z.number().positive("Số tiền thực tế quá bé"),
+  sourceType: z.enum(["AdvanceRequest", "PaymentRequest", "PurchaseRequest", "MaterialRequest"]).optional(),
+  advanceRequestId: z.string().optional().nullable(),
+  paymentRequestId: z.string().optional().nullable(),
+  purchaseRequestId: z.string().optional().nullable(),
+  materialRequestId: z.string().optional().nullable(),
+  advanceRequestIds: z.array(z.string()).optional(), // Giữ lại ID lẻ để tương thích, bổ sung array cho gộp phiếu
+  title: z.string().optional().nullable(),
+  actualAmount: z.number().positive("Số tiền thực tế phải > 0").optional().nullable(),
+  invoiceNumber: z.string().optional().nullable(),
+  invoiceDate: z.string().optional().nullable(),
+  note: z.string().optional().nullable(),
+})
+
+export const updateSettlementSchema = z.object({
+  title: z.string().optional().nullable(),
+  actualAmount: z.number().positive("Số tiền thực tế phải > 0").optional().nullable(),
   invoiceNumber: z.string().optional().nullable(),
   invoiceDate: z.string().optional().nullable(),
   note: z.string().optional().nullable(),

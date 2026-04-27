@@ -9,32 +9,20 @@ export async function GET(req: NextRequest) {
 
   try {
     const list = await prisma.settlement.findMany({
-      where: { companyId: user.companyId },
+      where: { createdBy: { companyId: user.companyId } },
       orderBy: { createdAt: "desc" },
       include: {
         createdBy: { select: { id: true, name: true } },
-        advanceRequest: { select: { code: true, amount: true } }
+        advanceRequest: { select: { code: true, amount: true } },
+        paymentRequest: { select: { code: true, amount: true } },
+        purchaseRequest: { select: { code: true, totalAmount: true } },
+        materialRequest: { select: { code: true } },
       },
     })
     return success(list)
   } catch (error) {
-    // If the schema error happens "where: companyId doesn't exist", let me check if Settlement has companyId.
-    // Wait, let's look at schema! I should check if Settlement has companyId.
-    try {
-      // Let's try without companyId, but filter by advanceRequest.companyId
-      const listFallback = await prisma.settlement.findMany({
-        where: { advanceRequest: { companyId: user.companyId } },
-        orderBy: { createdAt: "desc" },
-        include: {
-          createdBy: { select: { id: true, name: true } },
-          advanceRequest: { select: { code: true, amount: true } }
-        },
-      })
-      return success(listFallback)
-    } catch(err2) {
-      console.error(err2)
-      return serverError()
-    }
+    console.error("GET /api/settlements error:", error)
+    return serverError()
   }
 }
 
@@ -49,22 +37,43 @@ export async function POST(req: NextRequest) {
       return badRequest(parsed.error.issues.map((e) => e.message).join(", "))
     }
 
-    const { advanceRequestId, actualAmount, invoiceNumber, invoiceDate, note } = parsed.data
+    const {
+      sourceType,
+      advanceRequestId, paymentRequestId, purchaseRequestId, materialRequestId,
+      advanceRequestIds, 
+      title, actualAmount, invoiceNumber, invoiceDate, note,
+    } = parsed.data
 
-    const advance = await prisma.advanceRequest.findUnique({ where: { id: advanceRequestId } })
-    if (!advance) return badRequest("Tạm ứng không tồn tại")
+    // 1. Determine resolvedSourceType
+    const validAdvanceIds = advanceRequestIds?.length ? advanceRequestIds : (advanceRequestId ? [advanceRequestId] : [])
     
-    // Check if advance is fully executed (Closed) - optional depending on strictness
-    // but at least it should be Approved or Closed
-    
-    const originalAmount = Number(advance.amount)
+    const resolvedSourceType = sourceType
+      || (validAdvanceIds.length > 0 ? "AdvanceRequest"
+        : paymentRequestId ? "PaymentRequest"
+          : purchaseRequestId ? "PurchaseRequest"
+            : materialRequestId ? "MaterialRequest"
+              : "AdvanceRequest")
+
+    // 2. Calculate return/additional for advance requests
     let returnAmount = 0
     let additionalAmount = 0
-    
-    if (actualAmount > originalAmount) {
-      additionalAmount = actualAmount - originalAmount
-    } else if (actualAmount < originalAmount) {
-      returnAmount = originalAmount - actualAmount
+    let originalAmountTotal = 0
+
+    if (resolvedSourceType === "AdvanceRequest" && validAdvanceIds.length > 0 && actualAmount !== undefined && actualAmount !== null) {
+      // Find all selected advance requests
+      const advances = await prisma.advanceRequest.findMany({ 
+        where: { id: { in: validAdvanceIds }, companyId: user.companyId } 
+      })
+      
+      if (advances.length === 0) return badRequest("Tạm ứng không tồn tại")
+
+      originalAmountTotal = advances.reduce((sum, advance) => sum + Number(advance.amount), 0)
+      
+      if (actualAmount > originalAmountTotal) {
+        additionalAmount = actualAmount - originalAmountTotal
+      } else if (actualAmount < originalAmountTotal) {
+        returnAmount = originalAmountTotal - actualAmount
+      }
     }
 
     // Code generation
@@ -75,17 +84,40 @@ export async function POST(req: NextRequest) {
     })
     const code = `${prefix}${(count + 1).toString().padStart(4, "0")}`
 
+    // 3. Build SettlementItems payload
+    const settlementItemsData = []
+    
+    if (validAdvanceIds.length > 0) {
+      validAdvanceIds.forEach(id => settlementItemsData.push({ advanceRequestId: id }))
+    } else if (paymentRequestId) {
+      settlementItemsData.push({ paymentRequestId })
+    } else if (purchaseRequestId) {
+      settlementItemsData.push({ purchaseRequestId })
+    } else if (materialRequestId) {
+      settlementItemsData.push({ materialRequestId })
+    }
+
     const newSettlement = await prisma.settlement.create({
       data: {
         code,
-        advanceRequestId,
+        title,
+        sourceType: resolvedSourceType,
         createdById: user.id,
-        actualAmount,
+        // Legacy 1-1 fields for backward compatibility, optionally we can keep the first index
+        advanceRequestId: validAdvanceIds[0] || null,
+        paymentRequestId: paymentRequestId || null,
+        purchaseRequestId: purchaseRequestId || null,
+        materialRequestId: materialRequestId || null,
+        
+        actualAmount: actualAmount || null,
         returnAmount,
         additionalAmount,
         invoiceNumber,
         invoiceDate: invoiceDate ? new Date(invoiceDate) : null,
         note,
+        items: {
+          create: settlementItemsData
+        }
       },
     })
 

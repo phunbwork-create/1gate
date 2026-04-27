@@ -2,14 +2,12 @@
 
 import { useState } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function LoginPage() {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -30,8 +28,8 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Email hoặc mật khẩu không chính xác")
       } else {
-        router.push("/dashboard")
-        router.refresh()
+        // Hard navigate để tránh round-trip fetch session của useSession()
+        window.location.href = "/dashboard"
       }
     } catch {
       setError("Đã xảy ra lỗi. Vui lòng thử lại.")
@@ -70,7 +68,7 @@ export default function LoginPage() {
               1Gate
             </CardTitle>
             <CardDescription className="text-slate-400 mt-1">
-              Hệ thống Quản lý Mua sắm & Thanh toán
+              Hệ thống Quản lý Hồ sơ & Thanh toán
             </CardDescription>
           </div>
         </CardHeader>
@@ -83,7 +81,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            <div className="space-y-2">
+            <div className="space-y-2" suppressHydrationWarning>
               <Label htmlFor="email" className="text-slate-300 text-sm font-medium">
                 Email
               </Label>
@@ -99,7 +97,7 @@ export default function LoginPage() {
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2" suppressHydrationWarning>
               <Label htmlFor="password" className="text-slate-300 text-sm font-medium">
                 Mật khẩu
               </Label>

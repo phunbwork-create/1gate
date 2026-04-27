@@ -137,37 +137,101 @@ export interface WorkflowRecipient {
 export interface WorkflowNotifyOptions {
   entityCode: string
   entityLabel: string     // "Đề nghị Thanh toán", "Đề nghị Tạm ứng", etc.
-  action: "submitted" | "approved" | "rejected" | "returned" | "cancelled"
+  /**
+   * Hỗ trợ cả dạng động từ thô ("approve","reject","return","cancel")
+   * lẫn dạng đã xử lý ("approved","rejected","returned","cancelled","submitted")
+   * để tránh lỗi undefined khi value từ DB khác convention.
+   */
+  action: string
   actor: string           // person who performed the action
   comment?: string | null
   recipients: WorkflowRecipient[]
 }
 
-const ACTION_LABELS: Record<WorkflowNotifyOptions["action"], string> = {
-  submitted: "đã trình duyệt",
-  approved: "đã được phê duyệt",
-  rejected: "đã bị từ chối",
-  returned: "đã bị trả lại",
-  cancelled: "đã bị hủy",
+/** Chuẩn hóa action từ DB ("approve","reject","return") → key đồng nhất */
+function normalizeAction(
+  raw: string
+): "submitted" | "approved" | "rejected" | "returned" | "cancelled" {
+  const map: Record<string, "submitted" | "approved" | "rejected" | "returned" | "cancelled"> = {
+    submit:    "submitted",
+    submitted: "submitted",
+    approve:   "approved",
+    approved:  "approved",
+    reject:    "rejected",
+    rejected:  "rejected",
+    return:    "returned",
+    returned:  "returned",
+    cancel:    "cancelled",
+    cancelled: "cancelled",
+  }
+  return map[raw] ?? "submitted"
 }
 
 export async function notifyWorkflow(options: WorkflowNotifyOptions): Promise<void> {
-  const { entityCode, entityLabel, action, actor, comment, recipients } = options
+  const { entityCode, entityLabel, actor, comment, recipients } = options
+  const action = normalizeAction(options.action)
 
-  const label = ACTION_LABELS[action]
-  const title = `[1Gate] ${entityLabel} ${entityCode} ${label}`
-  let body = `${entityLabel} mã <b>${entityCode}</b> ${label} bởi <b>${actor}</b>.`
-  if (comment) body += `\n\nNhận xét: ${comment}`
+  const appUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
+
+  // ─── Title ngắn gọn ─────────────────────────────────────────────────────────
+  const ACTION_TITLE: Record<typeof action, string> = {
+    submitted: "⏳ Chờ phê duyệt",
+    approved:  "✅ Đã phê duyệt",
+    rejected:  "❌ Đã từ chối",
+    returned:  "🔄 Trả lại — cần bổ sung",
+    cancelled: "⛔ Đã hủy",
+  }
+  const title = `[1Gate] ${entityLabel} ${entityCode} — ${ACTION_TITLE[action]}`
+
+  // ─── Body chi tiết, nói rõ cần làm gì ──────────────────────────────────────
+  let body = ""
+
+  if (action === "submitted") {
+    body =
+      `📋 ${entityLabel} <b>${entityCode}</b> vừa được trình duyệt bởi <b>${actor}</b>.\n\n` +
+      `👉 Việc cần làm: Đăng nhập hệ thống, mở phiếu và thực hiện phê duyệt.\n` +
+      `🔗 ${appUrl}`
+  } else if (action === "approved") {
+    body =
+      `✅ ${entityLabel} <b>${entityCode}</b> đã được phê duyệt bởi <b>${actor}</b>.\n\n` +
+      `Phiếu của bạn đã qua bước duyệt, không cần thao tác thêm.`
+    if (comment) body += `\n\n💬 Nhận xét: <i>${comment}</i>`
+  } else if (action === "rejected") {
+    body =
+      `❌ ${entityLabel} <b>${entityCode}</b> đã bị từ chối bởi <b>${actor}</b>.\n\n` +
+      `👉 Việc cần làm: Xem lý do từ chối bên dưới, liên hệ kế toán nếu cần làm rõ.\n` +
+      `🔗 ${appUrl}`
+    if (comment) body += `\n\n💬 Lý do từ chối: <i>${comment}</i>`
+  } else if (action === "returned") {
+    body =
+      `🔄 ${entityLabel} <b>${entityCode}</b> đã bị trả lại bởi <b>${actor}</b>.\n\n` +
+      `👉 Việc cần làm: Đăng nhập, bổ sung thông tin còn thiếu rồi trình duyệt lại.\n` +
+      `🔗 ${appUrl}`
+    if (comment) body += `\n\n💬 Yêu cầu bổ sung: <i>${comment}</i>`
+  } else if (action === "cancelled") {
+    body = `⛔ ${entityLabel} <b>${entityCode}</b> đã bị hủy bởi <b>${actor}</b>.`
+    if (comment) body += `\n\n💬 Lý do: <i>${comment}</i>`
+  }
+
+  // Fallback chat ID cho môi trường dev/test (set trong .env)
+  const devChatId = process.env.TELEGRAM_DEFAULT_CHAT_ID
 
   await Promise.allSettled(
-    recipients.map((r) =>
-      notify({
-        title: title.replace(/<b>|<\/b>/g, ""),
-        body: body.replace(/<b>|<\/b>/g, ""),
+    recipients.map((r) => {
+      const chatId = r.telegramChatId || devChatId || undefined
+      if (!chatId) {
+        console.warn(
+          `[Notification] User ${r.name} (${r.email}) chưa cài telegramChatId.`,
+          `Set TELEGRAM_DEFAULT_CHAT_ID trong .env để nhận thông báo khi test.`
+        )
+      }
+      return notify({
+        title: title.replace(/<[^>]+>/g, ""),
+        body:  body.replace(/<[^>]+>/g, ""),
         userId: r.id,
         email: r.email,
-        telegramChatId: r.telegramChatId || "1005223428", // Fake real telegram for testing
+        telegramChatId: chatId,
       })
-    )
+    })
   )
 }

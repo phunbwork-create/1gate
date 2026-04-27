@@ -31,7 +31,11 @@ interface PaymentReqDetail {
   company: { code: string; name: string }
   createdBy: { id: string; name: string }
   vendor: { id: string; name: string; taxCode: string | null } | null
-  purchaseRequest: { id: string; code: string } | null
+  purchaseRequest: {
+    id: string; code: string; vendorName: string | null; totalAmount: number | null
+    materialRequest: { id: string; code: string; purpose: string | null } | null
+    procurementPlan: { id: string; code: string; title: string } | null
+  } | null
   attachments: AttachmentItem[]
   approvalSteps: {
     id: string; role: Role; stepOrder: number; action: string | null
@@ -192,7 +196,23 @@ export default function PaymentRequestDetailPage() {
           </div>
         </div>
 
-        <div className="lg:col-span-8">
+        <div className="lg:col-span-8 space-y-6">
+          {req.purchaseRequest && (
+            <div className="bg-slate-50 dark:bg-slate-900 border rounded-xl p-4 text-sm space-y-2">
+              <h4 className="font-semibold text-primary">Thông tin chuỗi Cung ứng (Upstream)</h4>
+              <div className="grid grid-cols-2 gap-2 text-muted-foreground mt-2">
+                <div><span className="font-medium text-foreground">ĐN Mua hàng:</span> {req.purchaseRequest.code}</div>
+                <div><span className="font-medium text-foreground">Số tiền ĐN:</span> {req.purchaseRequest.totalAmount ? Number(req.purchaseRequest.totalAmount).toLocaleString("vi-VN") : "0"} ₫</div>
+                {req.purchaseRequest.materialRequest && (
+                  <div className="col-span-2"><span className="font-medium text-foreground">ĐN Cấp vật tư gốc:</span> {req.purchaseRequest.materialRequest.code} {req.purchaseRequest.materialRequest.purpose ? `(${req.purchaseRequest.materialRequest.purpose})` : ""}</div>
+                )}
+                {req.purchaseRequest.procurementPlan && (
+                  <div className="col-span-2"><span className="font-medium text-foreground">Hồ sơ/HĐ liên kết:</span> {req.purchaseRequest.procurementPlan.code} - {req.purchaseRequest.procurementPlan.title}</div>
+                )}
+              </div>
+            </div>
+          )}
+
           <Accordion type="multiple" defaultValue={["payment", "invoice", "attachments"]} className="w-full space-y-4">
 
             {/* Thông tin thanh toán */}
@@ -231,15 +251,6 @@ export default function PaymentRequestDetailPage() {
                       {req.description}
                     </p>
                   </div>
-
-                  {req.purchaseRequest && (
-                    <div>
-                      <span className="text-muted-foreground mb-0.5 block">Liên kết ĐNMH:</span>
-                      <Badge variant="outline" className="font-mono">
-                        {req.purchaseRequest.code}
-                      </Badge>
-                    </div>
-                  )}
                 </div>
               </AccordionContent>
             </AccordionItem>

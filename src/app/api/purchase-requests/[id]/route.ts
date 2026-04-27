@@ -19,6 +19,12 @@ export async function GET(
         company: { select: { id: true, name: true, code: true } },
         createdBy: { select: { id: true, name: true, email: true, departmentId: true } },
         procurementPlan: { select: { id: true, code: true, title: true } },
+        materialRequest: {
+          select: {
+            id: true, code: true, purpose: true,
+            procurementPlan: { select: { id: true, code: true, title: true } }
+          }
+        },
         items: {
           include: { materialItem: { select: { id: true, code: true, name: true } } },
         },

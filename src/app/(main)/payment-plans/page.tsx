@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { format } from "date-fns"
@@ -12,6 +12,7 @@ import {
 import { StatusBadge } from "@/components/business/status-badge"
 import { Separator } from "@/components/ui/separator"
 import { Loader2, Plus, Search, FileText } from "lucide-react"
+import { useAppSWR } from "@/lib/swr"
 
 interface PaymentPlanItem {
   id: string
@@ -27,27 +28,11 @@ interface PaymentPlanItem {
 export default function PaymentPlansListPage() {
   const router = useRouter()
   const { data: session } = useSession()
-  const [plans, setPlans] = useState<PaymentPlanItem[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
 
-  const fetchPlans = useCallback(async () => {
-    try {
-      const res = await fetch("/api/payment-plans")
-      const json = await res.json()
-      if (res.ok) setPlans(json)
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const { data: plans, isLoading: loading } = useAppSWR<PaymentPlanItem[]>("/api/payment-plans")
 
-  useEffect(() => {
-    fetchPlans()
-  }, [fetchPlans])
-
-  const filtered = plans.filter(p => 
+  const filtered = (plans ?? []).filter(p => 
     p.code.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (p.note && p.note.toLowerCase().includes(searchTerm.toLowerCase()))
   )

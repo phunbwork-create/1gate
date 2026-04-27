@@ -19,12 +19,12 @@ export async function POST(
       include: { items: true },
     })
 
-    if (!plan) return notFound("Kế hoạch không tồn tại")
-    if (plan.status !== "Draft") return badRequest("Chỉ được trình kế hoạch ở trạng thái Nháp")
+    if (!plan) return notFound("Hồ sơ không tồn tại")
+    if (plan.status !== "Draft") return badRequest("Chỉ được trình hồ sơ ở trạng thái Nháp")
     if (plan.createdById !== result.user.id && result.user.role !== "Admin") {
       return badRequest("Chỉ người tạo mới được trình duyệt")
     }
-    if (plan.items.length === 0) return badRequest("Kế hoạch phải có ít nhất 1 hàng hóa")
+    if (plan.items.length === 0) return badRequest("Hồ sơ phải có ít nhất 1 hàng hóa")
 
     const updated = await prisma.procurementPlan.update({
       where: { id },
@@ -49,7 +49,7 @@ export async function POST(
       })
       await notifyWorkflow({
         entityCode: plan.code,
-        entityLabel: "Kế hoạch Mua sắm",
+        entityLabel: "Hồ sơ / Hợp đồng",
         action: "submitted",
         actor: updated.createdBy.name,
         recipients: approvers,

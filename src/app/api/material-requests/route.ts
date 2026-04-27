@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { requireRole, success, badRequest, serverError, getPaginationParams, getSearchParam } from "@/lib/api-helpers"
 import { createMaterialRequestSchema } from "@/schemas/business.schema"
 import { generateCode } from "@/lib/code-generator"
+import { checkOverdueSettlements } from "@/lib/settlement-helper"
 
 // ─── GET /api/material-requests ──────────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -11,8 +12,11 @@ export async function GET(req: NextRequest) {
 
   try {
     const { skip, limit, page } = getPaginationParams(req)
+    const { searchParams } = new URL(req.url)
     const search = getSearchParam(req, "search")
     const status = getSearchParam(req, "status")
+    const dateFrom = searchParams.get("dateFrom")
+    const dateTo = searchParams.get("dateTo")
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {}
@@ -31,6 +35,14 @@ export async function GET(req: NextRequest) {
       ]
     }
     if (status) where.status = status
+    if (dateFrom || dateTo) {
+      where.createdAt = {}
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom)
+      if (dateTo) {
+        const end = new Date(dateTo); end.setHours(23, 59, 59, 999)
+        where.createdAt.lte = end
+      }
+    }
 
     const [requests, total] = await Promise.all([
       prisma.materialRequest.findMany({
@@ -78,6 +90,12 @@ export async function POST(req: NextRequest) {
       select: { code: true },
     })
     if (!company) return badRequest("Công ty không tồn tại")
+
+    // Check penalty (Quyết toán quá hạn)
+    const hasOverdue = await checkOverdueSettlements(result.user.id, result.user.companyId, prisma)
+    if (hasOverdue) {
+      return badRequest("Bị khóa: Bạn đang có nợ quyết toán quá hạn. Vui lòng hoàn tất quyết toán trước khi tạo Đề xuất mới.")
+    }
 
     const code = await generateCode("materialRequest", company.code)
 

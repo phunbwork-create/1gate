@@ -12,7 +12,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import { Loader2, Plus, Trash2, Save, Send, ArrowLeft } from "lucide-react"
+import { Loader2, Plus, Trash2, Save, Send, ArrowLeft, Copy } from "lucide-react"
 
 interface MaterialOption { id: string; code: string; name: string; unit: string }
 interface VendorOption { id: string; name: string; taxCode: string | null }
@@ -29,6 +29,13 @@ const emptyItem = (): PReqItem => ({
 
 export default function PurchaseRequestNewPage() {
   const router = useRouter()
+  // Workflows References
+  const [materialRequestId, setMaterialRequestId] = useState("")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [materialRequests, setMaterialRequests] = useState<any[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [selectedMR, setSelectedMR] = useState<any>(null)
+
   const [vendorId, setVendorId] = useState("")
   const [vendorName, setVendorName] = useState("")
   const [note, setNote] = useState("")
@@ -40,18 +47,47 @@ export default function PurchaseRequestNewPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [matRes, vendorRes] = await Promise.all([
-        fetch("/api/admin/materials?limit=100"),
+      const [matRes, vendorRes, mrRes] = await Promise.all([
+        fetch("/api/materials?limit=500"),
         fetch("/api/admin/vendors?limit=100"),
+        fetch("/api/material-requests?status=Approved&limit=100")
       ])
-      const matJson = await matRes.json()
-      const vendorJson = await vendorRes.json()
-      if (matRes.ok) setMaterials(matJson.data)
-      if (vendorRes.ok) setVendors(vendorJson.data)
+      if (matRes.ok) setMaterials((await matRes.json()).data)
+      if (vendorRes.ok) setVendors((await vendorRes.json()).data)
+      if (mrRes.ok) setMaterialRequests((await mrRes.json()).data)
     } catch (e) { console.error(e) }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  async function handleSelectMR(mrId: string) {
+    setMaterialRequestId(mrId)
+    if (!mrId) {
+      setSelectedMR(null)
+      return
+    }
+    try {
+      const res = await fetch(`/api/material-requests/${mrId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setSelectedMR(data)
+      }
+    } catch(e) { console.error(e) }
+  }
+
+  function handleCopyFromMR() {
+    if (!selectedMR || !selectedMR.items) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const newItems = selectedMR.items.map((i: any) => ({
+      materialItemId: i.materialItemId,
+      itemName: i.itemName,
+      unit: i.unit,
+      quantity: Number(i.requestedQty),
+      unitPrice: null,
+      note: i.note || ""
+    }))
+    if (newItems.length > 0) setItems(newItems)
+  }
 
   function selectVendor(vId: string) {
     if (vId === "manual") { setVendorId(""); return }
@@ -83,6 +119,7 @@ export default function PurchaseRequestNewPage() {
     setSaving(true); setError("")
     try {
       const body = {
+        materialRequestId,
         vendorId: vendorId || null, vendorName: vendorName || null, note: note || null,
         items: items.filter((i) => i.itemName.trim()).map((i) => ({
           materialItemId: i.materialItemId,
@@ -119,7 +156,43 @@ export default function PurchaseRequestNewPage() {
 
       {error && <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg">{error}</div>}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="text-destructive font-semibold">Đề nghị cấp vật tư (Bắt buộc) *</Label>
+          <div className="flex gap-2">
+            <Select value={materialRequestId} onValueChange={handleSelectMR}>
+              <SelectTrigger className="flex-1"><SelectValue placeholder="Chọn ĐN Cấp vật tư" /></SelectTrigger>
+              <SelectContent>
+                {materialRequests.map((mr) => (
+                  <SelectItem key={mr.id} value={mr.id}>
+                    {mr.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedMR && (
+              <Button type="button" variant="outline" className="gap-2" onClick={handleCopyFromMR}>
+                <Copy className="h-4 w-4" /> Copy danh sách
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {selectedMR && (
+        <div className="bg-slate-50 dark:bg-slate-900 border rounded-lg p-4 text-sm space-y-2">
+          <h4 className="font-semibold text-primary">Thông tin Đề nghị cấp vật tư</h4>
+          <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+            <div><span className="font-medium text-foreground">Mã:</span> {selectedMR.code}</div>
+            {selectedMR.procurementPlan && (
+              <div><span className="font-medium text-foreground">Hồ sơ/HĐ:</span> {selectedMR.procurementPlan.code} - {selectedMR.procurementPlan.title}</div>
+            )}
+            <div className="col-span-2"><span className="font-medium text-foreground">Mục đích:</span> {selectedMR.purpose || "Không có"}</div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t pt-4">
         <div className="space-y-2">
           <Label>Nhà cung cấp</Label>
           <Select value={vendorId || "manual"} onValueChange={selectVendor}>

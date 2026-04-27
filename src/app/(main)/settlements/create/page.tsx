@@ -54,9 +54,9 @@ export default function CreateSettlementPage() {
 
   // Calculate return and additional automatically for display
   const originalAmount = selectedAdvance ? Number(selectedAdvance.amount) : 0
-  const isReturn = actualAmount < originalAmount
-  const isAdditional = actualAmount > originalAmount
-  const diff = Math.abs(originalAmount - actualAmount)
+  const isReturn = (actualAmount ?? 0) < originalAmount
+  const isAdditional = (actualAmount ?? 0) > originalAmount
+  const diff = Math.abs(originalAmount - (actualAmount ?? 0))
 
   async function onSubmit(data: FormValues) {
     setLoading(true)
@@ -105,7 +105,7 @@ export default function CreateSettlementPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Chọn phiếu tạm ứng <span className="text-red-500">*</span></FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} defaultValue={field.value || undefined}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Chọn phiếu tạm ứng cần quyết toán..." />
@@ -153,6 +153,7 @@ export default function CreateSettlementPage() {
                         type="number" 
                         placeholder="0" 
                         {...field} 
+                        value={field.value ?? ""}
                         onChange={(e) => field.onChange(Number(e.target.value))} 
                       />
                     </FormControl>
@@ -161,7 +162,7 @@ export default function CreateSettlementPage() {
                 )}
               />
 
-              {selectedAdvance && actualAmount > 0 && (
+              {selectedAdvance && (actualAmount ?? 0) > 0 && (
                 <div className={`p-4 rounded-lg border ${isReturn ? "bg-emerald-50 border-emerald-200" : isAdditional ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-200"}`}>
                   {isReturn ? (
                     <p className="text-emerald-700 font-medium">Bạn cần hoàn trả lại công ty: <strong className="text-lg">{diff.toLocaleString("vi-VN")} ₫</strong></p>

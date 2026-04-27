@@ -30,10 +30,11 @@ export function NotificationBell() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchNotifications()
-    // Poll every 60s
+    // Delay first fetch so page data loads first (avoids bandwidth contention)
+    const timer = setTimeout(fetchNotifications, 2000)
+    // Poll every 60s after that
     const interval = setInterval(fetchNotifications, 60000)
-    return () => clearInterval(interval)
+    return () => { clearTimeout(timer); clearInterval(interval) }
   }, [])
 
   const fetchNotifications = async () => {

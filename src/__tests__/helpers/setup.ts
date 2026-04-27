@@ -3,7 +3,8 @@ import { Role } from "@prisma/client"
 
 // ─── MOCK PRISMA ─────────────────────────────────────────────────────────────
 
-const prismaMock = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const prismaMock: any = {
   user: { findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn(), update: jest.fn() },
   company: { findUnique: jest.fn(), findMany: jest.fn(), count: jest.fn(), create: jest.fn(), update: jest.fn() },
   department: { findMany: jest.fn() },
@@ -18,7 +19,8 @@ const prismaMock = {
   inventoryCheck: { findUnique: jest.fn(), create: jest.fn() },
   approvalStep: { create: jest.fn(), findMany: jest.fn() },
   auditLog: { create: jest.fn() },
-  $transaction: jest.fn((fn: any) => fn(prismaMock)),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  $transaction: jest.fn((fn: any): any => fn(prismaMock)),
 }
 
 jest.mock("@/lib/prisma", () => ({

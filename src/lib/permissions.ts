@@ -59,7 +59,7 @@ const RESOURCE_ACCESS: Record<Resource, Role[]> = {
   advanceRequest: ["Staff", "DeptHead", "ChiefAccountant", "Director", "Admin"],
   paymentPlan: ["ChiefAccountant", "Director", "Admin"],
   paymentVoucher: ["Accountant", "ChiefAccountant", "Admin"],
-  settlement: ["Staff", "Accountant", "ChiefAccountant", "Admin"],
+  settlement: ["Staff", "DeptHead", "Accountant", "ChiefAccountant", "Admin"],
   notification: [
     "Admin", "Staff", "DeptHead", "Warehouse", "Purchasing",
     "Accountant", "ChiefAccountant", "Director",
@@ -108,7 +108,7 @@ export function hasMinRole(userRole: Role, minRole: Role): boolean {
  * Get the approval chain for a given entity type and amount
  */
 export function getApprovalChain(
-  entityType: "procurementPlan" | "materialRequest" | "purchaseRequest" | "paymentRequest" | "advanceRequest" | "paymentPlan",
+  entityType: "procurementPlan" | "materialRequest" | "purchaseRequest" | "paymentRequest" | "advanceRequest" | "paymentPlan" | "settlement",
   amount?: number
 ): Role[] {
   switch (entityType) {
@@ -132,6 +132,9 @@ export function getApprovalChain(
 
     case "paymentPlan":
       return ["ChiefAccountant", "Director"]
+
+    case "settlement":
+      return ["DeptHead", "Accountant"]
 
     default:
       return []
@@ -157,7 +160,7 @@ export interface MenuItem {
 
 export const MENU_ITEMS: MenuItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: "LayoutDashboard", resource: "dashboard" },
-  { title: "KH Mua sắm", href: "/procurement", icon: "ClipboardList", resource: "procurementPlan" },
+  { title: "Hồ sơ / Hợp đồng", href: "/procurement", icon: "FileCheck", resource: "procurementPlan" },
   { title: "ĐN Cấp Vật tư", href: "/materials", icon: "Package", resource: "materialRequest" },
   { title: "ĐN Mua hàng", href: "/purchases", icon: "ShoppingCart", resource: "purchaseRequest" },
   { title: "ĐN Thanh toán", href: "/payments", icon: "CreditCard", resource: "paymentRequest" },

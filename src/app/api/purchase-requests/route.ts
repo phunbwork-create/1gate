@@ -11,8 +11,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const { skip, limit, page } = getPaginationParams(req)
+    const { searchParams } = new URL(req.url)
     const search = getSearchParam(req, "search")
     const status = getSearchParam(req, "status")
+    const dateFrom = searchParams.get("dateFrom")
+    const dateTo = searchParams.get("dateTo")
+    const amountMin = searchParams.get("amountMin")
+    const amountMax = searchParams.get("amountMax")
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {}
@@ -31,6 +36,20 @@ export async function GET(req: NextRequest) {
       ]
     }
     if (status) where.status = status
+    if (dateFrom || dateTo) {
+      where.createdAt = {}
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom)
+      if (dateTo) {
+        const end = new Date(dateTo)
+        end.setHours(23, 59, 59, 999)
+        where.createdAt.lte = end
+      }
+    }
+    if (amountMin || amountMax) {
+      where.totalAmount = {}
+      if (amountMin) where.totalAmount.gte = Number(amountMin)
+      if (amountMax) where.totalAmount.lte = Number(amountMax)
+    }
 
     const [requests, total] = await Promise.all([
       prisma.purchaseRequest.findMany({

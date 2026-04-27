@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { NotificationBell } from "@/components/layout/notification-bell"
+import { RouteProgress } from "@/components/layout/route-progress"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +45,7 @@ import {
   Menu,
   LogOut,
   Settings,
+  User,
   type LucideIcon,
 } from "lucide-react"
 
@@ -271,6 +273,13 @@ function SidebarContent({
               </Badge>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link href="/profile">
+                <User className="mr-2 h-4 w-4" />
+                Hồ sơ cá nhân
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="text-red-500 focus:text-red-500 cursor-pointer"
@@ -299,12 +308,54 @@ export default function MainLayout({
 
   if (status === "loading") {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center animate-pulse">
-            <span className="text-lg font-bold text-white">1G</span>
+      <div className="flex h-screen bg-background">
+        {/* Skeleton sidebar */}
+        <aside className="hidden lg:flex flex-col w-64 border-r border-sidebar-border">
+          {/* Header skeleton */}
+          <div className="flex h-16 items-center gap-2.5 px-4 border-b border-sidebar-border">
+            <div className="w-8 h-8 rounded-lg bg-muted animate-pulse" />
+            <div className="w-20 h-4 rounded bg-muted animate-pulse" />
           </div>
-          <p className="text-sm text-muted-foreground">Đang tải...</p>
+          {/* Nav items skeleton */}
+          <div className="flex-1 py-4 px-3 space-y-1">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
+                <div className="w-[18px] h-[18px] rounded bg-muted animate-pulse flex-shrink-0" />
+                <div className="h-3.5 rounded bg-muted animate-pulse flex-1" style={{ width: `${55 + (i % 3) * 15}%` }} />
+              </div>
+            ))}
+          </div>
+          {/* User footer skeleton */}
+          <div className="border-t border-sidebar-border p-3">
+            <div className="flex items-center gap-2.5 p-2">
+              <div className="w-8 h-8 rounded-full bg-muted animate-pulse flex-shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3 rounded bg-muted animate-pulse w-3/4" />
+                <div className="h-2.5 rounded bg-muted animate-pulse w-1/2" />
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main content area skeleton */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Header skeleton */}
+          <header className="h-16 border-b flex items-center justify-between px-6 bg-background/80">
+            <div className="w-32 h-5 rounded bg-muted animate-pulse" />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+              <div className="w-24 h-6 rounded-full bg-muted animate-pulse" />
+            </div>
+          </header>
+          {/* Page content skeleton */}
+          <main className="flex-1 p-6 space-y-4">
+            <div className="grid grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
+              ))}
+            </div>
+            <div className="h-64 rounded-xl bg-muted animate-pulse" />
+          </main>
         </div>
       </div>
     )
@@ -318,6 +369,7 @@ export default function MainLayout({
 
   return (
     <div className="flex h-screen bg-background">
+      <RouteProgress />
       {/* Desktop sidebar */}
       <aside
         className={`hidden lg:flex flex-col border-r border-sidebar-border transition-all duration-200 ${

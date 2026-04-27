@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { requireRole, success, badRequest, notFound, serverError } from "@/lib/api-helpers"
 import { approvalActionSchema } from "@/schemas/business.schema"
 import { notifyWorkflow } from "@/lib/notification"
+import { autoGenerateSettlement } from "@/lib/settlement-helper"
 
 // ─── POST /api/material-requests/[id]/approve ────────────────────────────────
 export async function POST(
@@ -68,6 +69,13 @@ export async function POST(
         await tx.materialRequest.update({
           where: { id },
           data: { status: "Approved", approvedAt: new Date() },
+        })
+        // Auto-generate Settlement
+        await autoGenerateSettlement(tx, {
+          sourceType: "MaterialRequest",
+          sourceId: id,
+          sourceCode: request.code,
+          createdById: request.createdById,
         })
       }
     })

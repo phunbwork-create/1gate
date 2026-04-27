@@ -34,21 +34,21 @@ export async function POST(
       },
     })
 
-    if (!plan) return notFound("Kế hoạch không tồn tại")
+    if (!plan) return notFound("Hồ sơ không tồn tại")
     if (!["Submitted", "PendingApproval"].includes(plan.status)) {
-      return badRequest("Kế hoạch chưa được trình duyệt")
+      return badRequest("Hồ sơ chưa được trình duyệt")
     }
 
     // Company scope
     if (result.user.role !== "Admin" && plan.companyId !== result.user.companyId) {
-      return notFound("Kế hoạch không tồn tại")
+      return notFound("Hồ sơ không tồn tại")
     }
 
     // Determine current step in chain: count approvals after the last return/reject
     const currentStepIndex = calculateCurrentStepIndex(plan.approvalSteps)
     const expectedRole = APPROVAL_CHAIN[currentStepIndex]
 
-    if (!expectedRole) return badRequest("Kế hoạch đã được duyệt xong")
+    if (!expectedRole) return badRequest("Hồ sơ đã được duyệt xong")
 
     // Check if user has the right role for this step
     if (result.user.role !== expectedRole && result.user.role !== "Admin") {
@@ -57,7 +57,7 @@ export async function POST(
 
     // Prevent self-approval (creator cannot approve own plan)
     if (plan.createdById === result.user.id) {
-      return badRequest("Không thể tự duyệt kế hoạch do mình tạo")
+      return badRequest("Không thể tự duyệt hồ sơ do mình tạo")
     }
 
     await prisma.$transaction(async (tx) => {
@@ -108,7 +108,7 @@ export async function POST(
     })
     await notifyWorkflow({
       entityCode: plan.code,
-      entityLabel: "Kế hoạch Mua sắm",
+      entityLabel: "Hồ sơ / Hợp đồng",
       action: action as "approved" | "rejected" | "returned",
       actor: actor?.name || result.user.id,
       comment,

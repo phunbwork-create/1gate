@@ -40,7 +40,7 @@ export default function MaterialRequestNewPage() {
   const fetchData = useCallback(async () => {
     try {
       const [matRes, planRes] = await Promise.all([
-        fetch("/api/admin/materials?limit=100"),
+        fetch("/api/materials?limit=500"),
         fetch("/api/procurement?status=Approved&limit=100"),
       ])
       const matJson = await matRes.json()
@@ -120,9 +120,9 @@ export default function MaterialRequestNewPage() {
           <Input type="date" value={requiredDate} onChange={(e) => setRequiredDate(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label>KH Mua sắm liên kết</Label>
+          <Label>Hồ sơ/HĐ liên kết</Label>
           <Select value={procurementPlanId || "none"} onValueChange={setProcurementPlanId}>
-            <SelectTrigger><SelectValue placeholder="Chọn KH" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Chọn hồ sơ" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">— Không liên kết —</SelectItem>
               {plans.map((p) => <SelectItem key={p.id} value={p.id}>{p.code} — {p.title}</SelectItem>)}

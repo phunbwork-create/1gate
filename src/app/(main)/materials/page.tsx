@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { RequestStatus } from "@/types/domain"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -12,8 +13,14 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import { StatusBadge } from "@/components/business/status-badge"
-import { Search, Plus, Loader2, PackageOpen, ChevronLeft, ChevronRight, Eye } from "lucide-react"
+import {
+  Search, Plus, Loader2, PackageOpen, ChevronLeft, ChevronRight, Eye, SlidersHorizontal, X,
+} from "lucide-react"
+import { useAppSWR } from "@/lib/swr"
 
 interface MReq {
   id: string; code: string; purpose: string | null; status: RequestStatus
@@ -25,34 +32,42 @@ interface MReq {
 interface Pagination { page: number; limit: number; total: number; totalPages: number }
 
 const STATUS_OPTIONS = [
-  { value: "all", label: "Tất cả" }, { value: "Draft", label: "Nháp" },
-  { value: "Submitted", label: "Đã trình" }, { value: "Approved", label: "Đã duyệt" },
+  { value: "all", label: "Tất cả trạng thái" },
+  { value: "Draft", label: "Nháp" },
+  { value: "Submitted", label: "Đã trình" },
+  { value: "Approved", label: "Đã duyệt" },
   { value: "Rejected", label: "Từ chối" },
+  { value: "Closed", label: "Đã đóng" },
 ]
 
 export default function MaterialRequestsPage() {
   const router = useRouter()
-  const [requests, setRequests] = useState<MReq[]>([])
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 0 })
-  const [loading, setLoading] = useState(true)
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [page, setPage] = useState(1)
+
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
+  const [dateFrom, setDateFrom] = useState("")
+  const [dateTo, setDateTo] = useState("")
 
-  const fetchRequests = useCallback(async (page = 1, statusOverride?: string) => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({ page: String(page), limit: "20" })
-      if (search) params.set("search", search)
-      const s = statusOverride ?? filterStatus
-      if (s !== "all") params.set("status", s)
-      const res = await fetch(`/api/material-requests?${params}`)
-      const json = await res.json()
-      if (res.ok) { setRequests(json.data); setPagination(json.pagination) }
-    } catch (err) { console.error(err) }
-    finally { setLoading(false) }
-  }, [search, filterStatus])
+  const activeFilters = [filterStatus !== "all", dateFrom, dateTo].filter(Boolean).length
 
-  useEffect(() => { fetchRequests() }, [fetchRequests])
+  const swrKey = useMemo(() => {
+    const params = new URLSearchParams({ page: String(page), limit: "20" })
+    if (search) params.set("search", search)
+    if (filterStatus !== "all") params.set("status", filterStatus)
+    if (dateFrom) params.set("dateFrom", dateFrom)
+    if (dateTo) params.set("dateTo", dateTo)
+    return `/api/material-requests?${params}`
+  }, [page, search, filterStatus, dateFrom, dateTo])
+
+  const { data: response, isLoading: loading } = useAppSWR(swrKey)
+  const requests: MReq[] = response?.data ?? []
+  const pagination: Pagination = response?.pagination ?? { page: 1, limit: 20, total: 0, totalPages: 0 }
+
+  function clearFilters() {
+    setFilterStatus("all"); setDateFrom(""); setDateTo("")
+  }
 
   return (
     <div className="space-y-6">
@@ -73,15 +88,43 @@ export default function MaterialRequestsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Tìm theo mã..." value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && fetchRequests(1)} className="pl-9" />
+            onKeyDown={(e) => e.key === "Enter" && setPage(1)} className="pl-9" />
         </div>
-        <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); fetchRequests(1, v) }}>
-          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+        <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v)}>
+          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Collapsible open={filterOpen} onOpenChange={setFilterOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <SlidersHorizontal className="h-4 w-4" /> Lọc nâng cao
+              {activeFilters > 0 && <Badge className="h-5 w-5 p-0 flex items-center justify-center text-[10px]">{activeFilters}</Badge>}
+            </Button>
+          </CollapsibleTrigger>
+        </Collapsible>
+        {activeFilters > 0 && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 text-muted-foreground">
+            <X className="h-3.5 w-3.5" /> Xóa bộ lọc
+          </Button>
+        )}
       </div>
+
+      <Collapsible open={filterOpen}>
+        <CollapsibleContent>
+          <div className="rounded-lg border bg-muted/30 p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Từ ngày</Label>
+              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Đến ngày</Label>
+              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       <div className="rounded-lg border">
         <Table>
@@ -126,8 +169,8 @@ export default function MaterialRequestsPage() {
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">Trang {pagination.page}/{pagination.totalPages}</p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={pagination.page <= 1} onClick={() => fetchRequests(pagination.page - 1)}><ChevronLeft className="h-4 w-4" /></Button>
-            <Button variant="outline" size="sm" disabled={pagination.page >= pagination.totalPages} onClick={() => fetchRequests(pagination.page + 1)}><ChevronRight className="h-4 w-4" /></Button>
+            <Button variant="outline" size="sm" disabled={pagination.page <= 1} onClick={() => setPage(pagination.page - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+            <Button variant="outline" size="sm" disabled={pagination.page >= pagination.totalPages} onClick={() => setPage(pagination.page + 1)}><ChevronRight className="h-4 w-4" /></Button>
           </div>
         </div>
       )}

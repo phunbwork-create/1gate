@@ -75,79 +75,79 @@ enum NotificationChannel {
 }
 
 enum DocumentType {
-  Invoice        // Hóa đơn
-  Quotation      // Báo giá
-  Contract       // Hợp đồng
+  Invoice // Hóa đơn
+  Quotation // Báo giá
+  Contract // Hợp đồng
   AcceptanceCert // Biên bản nghiệm thu
   InventoryCheck // Phiếu tồn kho / Kiểm kho
-  Other          // Khác
+  Other // Khác
 }
 
 // ─── CORE ENTITIES ────────────────────────────────────────────────────────────
 
 model Company {
-  id          String      @id @default(cuid())
-  name        String
-  code        String      @unique
-  type        CompanyType
-  taxCode     String?
-  address     String?
-  isActive    Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id        String      @id @default(cuid())
+  name      String
+  code      String      @unique
+  type      CompanyType
+  taxCode   String?
+  address   String?
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
-  users               User[]
-  departments         Department[]
-  procurementPlans    ProcurementPlan[]
-  materialRequests    MaterialRequest[]
-  purchaseRequests    PurchaseRequest[]
-  paymentRequests     PaymentRequest[]
-  advanceRequests     AdvanceRequest[]
-  paymentPlans        PaymentPlan[]
-  materialItems       MaterialItem[]
-  vendors             Vendor[]
+  users            User[]
+  departments      Department[]
+  procurementPlans ProcurementPlan[]
+  materialRequests MaterialRequest[]
+  purchaseRequests PurchaseRequest[]
+  paymentRequests  PaymentRequest[]
+  advanceRequests  AdvanceRequest[]
+  paymentPlans     PaymentPlan[]
+  materialItems    MaterialItem[]
+  vendors          Vendor[]
 }
 
 model Department {
-  id          String   @id @default(cuid())
-  name        String
-  code        String
-  companyId   String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  name      String
+  code      String
+  companyId String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
 
-  company     Company  @relation(fields: [companyId], references: [id])
-  users       User[]
+  company Company @relation(fields: [companyId], references: [id])
+  users   User[]
 
   @@unique([code, companyId])
 }
 
 model User {
-  id               String    @id @default(cuid())
-  email            String    @unique
-  name             String
-  passwordHash     String
-  role             Role
-  companyId        String
-  departmentId     String?
-  telegramChatId   String?
-  isActive         Boolean   @default(true)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  passwordHash   String
+  role           Role
+  companyId      String
+  departmentId   String?
+  telegramChatId String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  company          Company     @relation(fields: [companyId], references: [id])
-  department       Department? @relation(fields: [departmentId], references: [id])
+  company    Company     @relation(fields: [companyId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
 
-  createdProcurementPlans   ProcurementPlan[]    @relation("PlanCreator")
-  createdMaterialRequests   MaterialRequest[]    @relation("MatReqCreator")
-  createdPurchaseRequests   PurchaseRequest[]    @relation("PurReqCreator")
-  createdPaymentRequests    PaymentRequest[]     @relation("PayReqCreator")
-  createdAdvanceRequests    AdvanceRequest[]     @relation("AdvReqCreator")
-  createdPaymentPlans       PaymentPlan[]        @relation("PayPlanCreator")
-  createdSettlements        Settlement[]         @relation("SettlementCreator")
-  approvalSteps             ApprovalStep[]
-  notifications             Notification[]
-  auditLogs                 AuditLog[]
+  createdProcurementPlans ProcurementPlan[] @relation("PlanCreator")
+  createdMaterialRequests MaterialRequest[] @relation("MatReqCreator")
+  createdPurchaseRequests PurchaseRequest[] @relation("PurReqCreator")
+  createdPaymentRequests  PaymentRequest[]  @relation("PayReqCreator")
+  createdAdvanceRequests  AdvanceRequest[]  @relation("AdvReqCreator")
+  createdPaymentPlans     PaymentPlan[]     @relation("PayPlanCreator")
+  createdSettlements      Settlement[]      @relation("SettlementCreator")
+  approvalSteps           ApprovalStep[]
+  notifications           Notification[]
+  auditLogs               AuditLog[]
 }
 
 model Vendor {
@@ -182,11 +182,11 @@ model MaterialItem {
   importedAt  DateTime @default(now())
   isActive    Boolean  @default(true)
 
-  company                  Company                  @relation(fields: [companyId], references: [id])
-  procurementPlanItems     ProcurementPlanItem[]
-  materialRequestItems     MaterialRequestItem[]
-  inventoryCheckItems      InventoryCheckItem[]
-  purchaseRequestItems     PurchaseRequestItem[]
+  company              Company               @relation(fields: [companyId], references: [id])
+  procurementPlanItems ProcurementPlanItem[]
+  materialRequestItems MaterialRequestItem[]
+  inventoryCheckItems  InventoryCheckItem[]
+  purchaseRequestItems PurchaseRequestItem[]
 
   @@unique([code, companyId])
 }
@@ -194,18 +194,19 @@ model MaterialItem {
 // ─── F-02: PROCUREMENT PLAN ───────────────────────────────────────────────────
 
 model ProcurementPlan {
-  id            String        @id @default(cuid())
-  code          String        @unique
-  title         String
-  description   String?
-  companyId     String
-  createdById   String
-  status        RequestStatus @default(Draft)
-  isLocked      Boolean       @default(false)
-  submittedAt   DateTime?
-  approvedAt    DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id           String        @id @default(cuid())
+  code         String        @unique
+  contractCode String? // Mã hồ sơ/HĐ do user nhập (bắt buộc trên UI, nullable cho data cũ)
+  title        String
+  description  String?
+  companyId    String
+  createdById  String
+  status       RequestStatus @default(Draft)
+  isLocked     Boolean       @default(false)
+  submittedAt  DateTime?
+  approvedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   company          Company               @relation(fields: [companyId], references: [id])
   createdBy        User                  @relation("PlanCreator", fields: [createdById], references: [id])
@@ -218,58 +219,61 @@ model ProcurementPlan {
 }
 
 model ProcurementPlanItem {
-  id                String          @id @default(cuid())
-  planId            String
-  materialItemId    String?
-  itemName          String
-  unit              String
-  plannedQty        Decimal         @db.Decimal(15, 2)
-  usedQty           Decimal         @default(0) @db.Decimal(15, 2)
-  estimatedPrice    Decimal?        @db.Decimal(15, 0)
-  note              String?
+  id             String   @id @default(cuid())
+  planId         String
+  materialItemId String?
+  itemName       String
+  unit           String
+  plannedQty     Decimal  @db.Decimal(15, 2)
+  usedQty        Decimal  @default(0) @db.Decimal(15, 2)
+  estimatedPrice Decimal? @db.Decimal(15, 0)
+  note           String?
 
-  plan          ProcurementPlan @relation(fields: [planId], references: [id])
-  materialItem  MaterialItem?   @relation(fields: [materialItemId], references: [id])
+  plan         ProcurementPlan @relation(fields: [planId], references: [id])
+  materialItem MaterialItem?   @relation(fields: [materialItemId], references: [id])
 }
 
 // ─── F-03: MATERIAL REQUEST ───────────────────────────────────────────────────
 
 model MaterialRequest {
-  id                  String        @id @default(cuid())
-  code                String        @unique
-  companyId           String
-  createdById         String
-  procurementPlanId   String?
-  status              RequestStatus @default(Draft)
-  isLocked            Boolean       @default(false)
-  purpose             String?
-  requiredDate        DateTime?
-  submittedAt         DateTime?
-  approvedAt          DateTime?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  id                String        @id @default(cuid())
+  code              String        @unique
+  companyId         String
+  createdById       String
+  procurementPlanId String?
+  status            RequestStatus @default(Draft)
+  isLocked          Boolean       @default(false)
+  purpose           String?
+  requiredDate      DateTime?
+  submittedAt       DateTime?
+  approvedAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
-  company           Company               @relation(fields: [companyId], references: [id])
-  createdBy         User                  @relation("MatReqCreator", fields: [createdById], references: [id])
-  procurementPlan   ProcurementPlan?      @relation(fields: [procurementPlanId], references: [id])
-  items             MaterialRequestItem[]
-  approvalSteps     ApprovalStep[]        @relation("MaterialRequestApprovals")
-  attachments       Attachment[]          @relation("MaterialRequestAttachments")
-  inventoryChecks   InventoryCheck[]
-  auditLogs         AuditLog[]            @relation("MaterialRequestAudit")
+  company         Company               @relation(fields: [companyId], references: [id])
+  createdBy       User                  @relation("MatReqCreator", fields: [createdById], references: [id])
+  procurementPlan ProcurementPlan?      @relation(fields: [procurementPlanId], references: [id])
+  items           MaterialRequestItem[]
+  approvalSteps   ApprovalStep[]        @relation("MaterialRequestApprovals")
+  attachments     Attachment[]          @relation("MaterialRequestAttachments")
+  inventoryChecks InventoryCheck[]
+  purchaseRequests PurchaseRequest[]
+  settlements      Settlement[]
+  settlementItems  SettlementItem[] @relation("SettlementItemMaterial")
+  auditLogs       AuditLog[]            @relation("MaterialRequestAudit")
 }
 
 model MaterialRequestItem {
-  id                String          @id @default(cuid())
-  requestId         String
-  materialItemId    String?
-  itemName          String
-  unit              String
-  requestedQty      Decimal         @db.Decimal(15, 2)
-  note              String?
+  id             String  @id @default(cuid())
+  requestId      String
+  materialItemId String?
+  itemName       String
+  unit           String
+  requestedQty   Decimal @db.Decimal(15, 2)
+  note           String?
 
-  request       MaterialRequest @relation(fields: [requestId], references: [id])
-  materialItem  MaterialItem?   @relation(fields: [materialItemId], references: [id])
+  request      MaterialRequest @relation(fields: [requestId], references: [id])
+  materialItem MaterialItem?   @relation(fields: [materialItemId], references: [id])
 }
 
 // ─── F-04: INVENTORY CHECK & PURCHASE REQUEST ─────────────────────────────────
@@ -284,52 +288,57 @@ model InventoryCheck {
   checkedAt         DateTime?
   createdAt         DateTime         @default(now())
 
-  materialRequest   MaterialRequest      @relation(fields: [materialRequestId], references: [id])
-  items             InventoryCheckItem[]
-  purchaseRequests  PurchaseRequest[]
+  materialRequest  MaterialRequest      @relation(fields: [materialRequestId], references: [id])
+  items            InventoryCheckItem[]
+  purchaseRequests PurchaseRequest[]
 }
 
 model InventoryCheckItem {
-  id               String   @id @default(cuid())
+  id               String  @id @default(cuid())
   inventoryCheckId String
   materialItemId   String?
   itemName         String
   unit             String
-  requestedQty     Decimal  @db.Decimal(15, 2)
-  availableQty     Decimal  @db.Decimal(15, 2)
-  shortfallQty     Decimal  @db.Decimal(15, 2)
+  requestedQty     Decimal @db.Decimal(15, 2)
+  availableQty     Decimal @db.Decimal(15, 2)
+  shortfallQty     Decimal @db.Decimal(15, 2)
 
-  inventoryCheck  InventoryCheck @relation(fields: [inventoryCheckId], references: [id])
-  materialItem    MaterialItem?  @relation(fields: [materialItemId], references: [id])
+  inventoryCheck InventoryCheck @relation(fields: [inventoryCheckId], references: [id])
+  materialItem   MaterialItem?  @relation(fields: [materialItemId], references: [id])
 }
 
 model PurchaseRequest {
-  id                  String        @id @default(cuid())
-  code                String        @unique
-  companyId           String
-  createdById         String
-  inventoryCheckId    String?
-  procurementPlanId   String?
-  vendorId            String?
-  vendorName          String?
-  status              RequestStatus @default(Draft)
-  isLocked            Boolean       @default(false)
-  totalAmount         Decimal?      @db.Decimal(15, 0)
-  note                String?
-  submittedAt         DateTime?
-  approvedAt          DateTime?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  id                String        @id @default(cuid())
+  code              String        @unique
+  companyId         String
+  createdById       String
+  materialRequestId String?
+  inventoryCheckId  String?
+  procurementPlanId String?
+  vendorId          String?
+  vendorName        String?
+  status            RequestStatus @default(Draft)
+  isLocked          Boolean       @default(false)
+  totalAmount       Decimal?      @db.Decimal(15, 0)
+  note              String?
+  submittedAt       DateTime?
+  approvedAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
-  company           Company               @relation(fields: [companyId], references: [id])
-  createdBy         User                  @relation("PurReqCreator", fields: [createdById], references: [id])
-  inventoryCheck    InventoryCheck?       @relation(fields: [inventoryCheckId], references: [id])
-  procurementPlan   ProcurementPlan?      @relation(fields: [procurementPlanId], references: [id])
-  items             PurchaseRequestItem[]
-  approvalSteps     ApprovalStep[]        @relation("PurchaseRequestApprovals")
-  attachments       Attachment[]          @relation("PurchaseRequestAttachments")
-  paymentRequests   PaymentRequest[]
-  auditLogs         AuditLog[]            @relation("PurchaseRequestAudit")
+  company         Company               @relation(fields: [companyId], references: [id])
+  createdBy       User                  @relation("PurReqCreator", fields: [createdById], references: [id])
+  materialRequest MaterialRequest?      @relation(fields: [materialRequestId], references: [id])
+  inventoryCheck  InventoryCheck?       @relation(fields: [inventoryCheckId], references: [id])
+  procurementPlan ProcurementPlan?      @relation(fields: [procurementPlanId], references: [id])
+  items           PurchaseRequestItem[]
+  approvalSteps   ApprovalStep[]        @relation("PurchaseRequestApprovals")
+  attachments     Attachment[]          @relation("PurchaseRequestAttachments")
+  paymentRequests PaymentRequest[]
+  advanceRequests  AdvanceRequest[]
+  settlements      Settlement[]
+  settlementItems  SettlementItem[] @relation("SettlementItemPurchase")
+  auditLogs       AuditLog[]            @relation("PurchaseRequestAudit")
 }
 
 model PurchaseRequestItem {
@@ -350,36 +359,38 @@ model PurchaseRequestItem {
 // ─── F-05: PAYMENT REQUEST ────────────────────────────────────────────────────
 
 model PaymentRequest {
-  id                  String          @id @default(cuid())
-  code                String          @unique
-  companyId           String
-  createdById         String
-  purchaseRequestId   String?
-  vendorId            String?
-  vendorName          String
-  bankAccount         String?
-  bankName            String?
-  amount              Decimal         @db.Decimal(15, 0)
-  description         String
-  invoiceScenario     InvoiceScenario @default(HasInvoice)
-  invoiceNumber       String?
-  invoiceDate         DateTime?
-  status              RequestStatus   @default(Draft)
-  isLocked            Boolean         @default(false)
-  submittedAt         DateTime?
-  approvedAt          DateTime?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  id                String          @id @default(cuid())
+  code              String          @unique
+  companyId         String
+  createdById       String
+  purchaseRequestId String?
+  vendorId          String?
+  vendorName        String
+  bankAccount       String?
+  bankName          String?
+  amount            Decimal         @db.Decimal(15, 0)
+  description       String
+  invoiceScenario   InvoiceScenario @default(HasInvoice)
+  invoiceNumber     String?
+  invoiceDate       DateTime?
+  status            RequestStatus   @default(Draft)
+  isLocked          Boolean         @default(false)
+  submittedAt       DateTime?
+  approvedAt        DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
-  company           Company           @relation(fields: [companyId], references: [id])
-  createdBy         User              @relation("PayReqCreator", fields: [createdById], references: [id])
-  purchaseRequest   PurchaseRequest?  @relation(fields: [purchaseRequestId], references: [id])
-  vendor            Vendor?           @relation(fields: [vendorId], references: [id])
-  approvalSteps     ApprovalStep[]    @relation("PaymentRequestApprovals")
-  attachments       Attachment[]      @relation("PaymentRequestAttachments")
-  paymentPlanItems  PaymentPlanItem[]
-  auditLogs         AuditLog[]        @relation("PaymentRequestAudit")
-  duplicateLogs     InvoiceDuplicateLog[]
+  company          Company               @relation(fields: [companyId], references: [id])
+  createdBy        User                  @relation("PayReqCreator", fields: [createdById], references: [id])
+  purchaseRequest  PurchaseRequest?      @relation(fields: [purchaseRequestId], references: [id])
+  vendor           Vendor?               @relation(fields: [vendorId], references: [id])
+  approvalSteps    ApprovalStep[]        @relation("PaymentRequestApprovals")
+  attachments      Attachment[]          @relation("PaymentRequestAttachments")
+  paymentPlanItems PaymentPlanItem[]
+  settlements      Settlement[]
+  settlementItems  SettlementItem[] @relation("SettlementItemPayment")
+  auditLogs        AuditLog[]            @relation("PaymentRequestAudit")
+  duplicateLogs    InvoiceDuplicateLog[]
 }
 
 // ─── F-06: ADVANCE REQUEST ────────────────────────────────────────────────────
@@ -389,6 +400,7 @@ model AdvanceRequest {
   code               String          @unique
   companyId          String
   createdById        String
+  purchaseRequestId  String?
   vendorId           String?
   vendorName         String?
   amount             Decimal         @db.Decimal(15, 0)
@@ -402,14 +414,16 @@ model AdvanceRequest {
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
 
-  company          Company          @relation(fields: [companyId], references: [id])
-  createdBy        User             @relation("AdvReqCreator", fields: [createdById], references: [id])
-  vendor           Vendor?          @relation(fields: [vendorId], references: [id])
-  approvalSteps    ApprovalStep[]   @relation("AdvanceRequestApprovals")
-  attachments      Attachment[]     @relation("AdvanceRequestAttachments")
+  company          Company           @relation(fields: [companyId], references: [id])
+  createdBy        User              @relation("AdvReqCreator", fields: [createdById], references: [id])
+  vendor           Vendor?           @relation(fields: [vendorId], references: [id])
+  purchaseRequest  PurchaseRequest?  @relation(fields: [purchaseRequestId], references: [id])
+  approvalSteps    ApprovalStep[]    @relation("AdvanceRequestApprovals")
+  attachments      Attachment[]      @relation("AdvanceRequestAttachments")
   paymentPlanItems PaymentPlanItem[]
   settlements      Settlement[]
-  auditLogs        AuditLog[]       @relation("AdvanceRequestAudit")
+  settlementItems  SettlementItem[] @relation("SettlementItemAdvance")
+  auditLogs        AuditLog[]        @relation("AdvanceRequestAudit")
 }
 
 // ─── F-07: PAYMENT PLAN ───────────────────────────────────────────────────────
@@ -471,40 +485,92 @@ model PaymentVoucher {
 }
 
 // ─── F-08: SETTLEMENT ─────────────────────────────────────────────────────────
+// NOTE: Settlement giờ hỗ trợ 4 loại đề xuất. Trường sourceType giúp phân biệt.
+// Các field tài chính (actualAmount, returnAmount, additionalAmount) chỉ bắt buộc
+// khi sourceType = AdvanceRequest. Các loại khác chỉ cần title + upload file.
+// → Dễ dàng chỉnh sửa khi có feedback từ Kế toán trưởng.
+
+enum SettlementSourceType {
+  AdvanceRequest
+  PaymentRequest
+  PurchaseRequest
+  MaterialRequest
+}
 
 model Settlement {
-  id               String        @id @default(cuid())
-  code             String        @unique
-  advanceRequestId String
-  createdById      String
-  actualAmount     Decimal       @db.Decimal(15, 0)
-  returnAmount     Decimal       @default(0) @db.Decimal(15, 0)
-  additionalAmount Decimal       @default(0) @db.Decimal(15, 0)
-  invoiceNumber    String?
-  invoiceDate      DateTime?
-  note             String?
-  status           RequestStatus @default(Draft)
-  settledAt        DateTime?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id          String               @id @default(cuid())
+  code        String               @unique
+  title       String?
+  sourceType  SettlementSourceType @default(AdvanceRequest)
+  createdById String
+  status      RequestStatus        @default(Draft)
 
-  advanceRequest AdvanceRequest @relation(fields: [advanceRequestId], references: [id])
-  createdBy      User           @relation("SettlementCreator", fields: [createdById], references: [id])
-  attachments    Attachment[]   @relation("SettlementAttachments")
-  auditLogs      AuditLog[]     @relation("SettlementAudit")
+  // ── Liên kết nguồn (ngầm hiểu sẽ qua SettlementItem) ──
+  // Giữ lại hoặc để null, tuỳ cách tiếp cận, nhưng đúng nhất là dùng `items`
+  // Tuy nhiên, do DB đang chạy có thể đã có dữ liệu, ta tạm giữ các trường này
+  // nhưng khuyến khích dùng SettlementItem. Để linh hoạt ta giữ lại field cho 1-1, 
+  // và dùng SettlementItem cho 1-N.
+  advanceRequestId  String?
+  paymentRequestId  String?
+  purchaseRequestId String?
+  materialRequestId String?
+
+  // ── Thông tin tài chính (chủ yếu dùng cho Tạm ứng) ──
+  actualAmount     Decimal? @db.Decimal(15, 0)
+  returnAmount     Decimal  @default(0) @db.Decimal(15, 0)
+  additionalAmount Decimal  @default(0) @db.Decimal(15, 0)
+
+  // ── Chứng từ ──
+  invoiceNumber String?
+  invoiceDate   DateTime?
+  note          String?
+
+  settledAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // ── Relations ──
+  advanceRequest  AdvanceRequest?  @relation(fields: [advanceRequestId], references: [id])
+  paymentRequest  PaymentRequest?  @relation(fields: [paymentRequestId], references: [id])
+  purchaseRequest PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id])
+  materialRequest MaterialRequest? @relation(fields: [materialRequestId], references: [id])
+  createdBy       User             @relation("SettlementCreator", fields: [createdById], references: [id])
+  attachments     Attachment[]     @relation("SettlementAttachments")
+  auditLogs       AuditLog[]       @relation("SettlementAudit")
+  items           SettlementItem[]
+  approvalSteps   ApprovalStep[]   @relation("SettlementApprovals")
+}
+
+model SettlementItem {
+  id                String   @id @default(cuid())
+  settlementId      String
+  
+  advanceRequestId  String?
+  paymentRequestId  String?
+  purchaseRequestId String?
+  materialRequestId String?
+  
+  allocatedAmount   Decimal? @db.Decimal(15, 0)
+  note              String?
+
+  settlement      Settlement       @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  advanceRequest  AdvanceRequest?  @relation("SettlementItemAdvance", fields: [advanceRequestId], references: [id])
+  paymentRequest  PaymentRequest?  @relation("SettlementItemPayment", fields: [paymentRequestId], references: [id])
+  purchaseRequest PurchaseRequest? @relation("SettlementItemPurchase", fields: [purchaseRequestId], references: [id])
+  materialRequest MaterialRequest? @relation("SettlementItemMaterial", fields: [materialRequestId], references: [id])
 }
 
 // ─── SHARED: APPROVAL, ATTACHMENT, NOTIFICATION, AUDIT ────────────────────────
 
 model ApprovalStep {
-  id            String    @id @default(cuid())
-  approverId    String
-  role          Role
-  stepOrder     Int
-  action        String?
-  comment       String?
-  actedAt       DateTime?
-  createdAt     DateTime  @default(now())
+  id         String    @id @default(cuid())
+  approverId String
+  role       Role
+  stepOrder  Int
+  action     String?
+  comment    String?
+  actedAt    DateTime?
+  createdAt  DateTime  @default(now())
 
   approver User @relation(fields: [approverId], references: [id])
 
@@ -514,6 +580,7 @@ model ApprovalStep {
   paymentRequestId  String?
   advanceRequestId  String?
   paymentPlanId     String?
+  settlementId      String?
 
   procurementPlan ProcurementPlan? @relation("ProcurementPlanApprovals", fields: [procurementPlanId], references: [id])
   materialRequest MaterialRequest? @relation("MaterialRequestApprovals", fields: [materialRequestId], references: [id])
@@ -521,16 +588,17 @@ model ApprovalStep {
   paymentRequest  PaymentRequest?  @relation("PaymentRequestApprovals", fields: [paymentRequestId], references: [id])
   advanceRequest  AdvanceRequest?  @relation("AdvanceRequestApprovals", fields: [advanceRequestId], references: [id])
   paymentPlan     PaymentPlan?     @relation("PaymentPlanApprovals", fields: [paymentPlanId], references: [id])
+  settlement      Settlement?      @relation("SettlementApprovals", fields: [settlementId], references: [id])
 }
 
 model Attachment {
-  id             String       @id @default(cuid())
-  fileName       String
-  fileUrl        String
-  fileSize       Int?
-  mimeType       String?
-  documentType   DocumentType @default(Other)
-  uploadedAt     DateTime     @default(now())
+  id           String       @id @default(cuid())
+  fileName     String
+  fileUrl      String
+  fileSize     Int?
+  mimeType     String?
+  documentType DocumentType @default(Other)
+  uploadedAt   DateTime     @default(now())
 
   procurementPlanId String?
   materialRequestId String?

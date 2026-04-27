@@ -29,14 +29,37 @@ export async function GET(
           },
           orderBy: { stepOrder: "asc" },
         },
+        attachments: {
+          select: {
+            id: true,
+            fileName: true,
+            fileUrl: true,
+            fileSize: true,
+            mimeType: true,
+            documentType: true,
+            uploadedAt: true,
+          },
+          orderBy: { uploadedAt: "desc" },
+        },
       },
     })
 
-    if (!plan) return notFound("Kế hoạch không tồn tại")
+    if (!plan) return notFound("Hồ sơ không tồn tại")
 
-    // Company scope check
-    if (result.user.role !== "Admin" && plan.companyId !== result.user.companyId) {
-      return notFound("Kế hoạch không tồn tại")
+    // ── Permission check ──────────────────────────────────────────────
+    // Admin  → sees all
+    // DeptHead → same company + same department
+    // Others → only own records
+    if (result.user.role === "Admin") {
+      // OK — full access
+    } else if (result.user.role === "DeptHead" && result.user.departmentId) {
+      if (plan.companyId !== result.user.companyId || plan.createdBy.departmentId !== result.user.departmentId) {
+        return notFound("Hồ sơ không tồn tại")
+      }
+    } else {
+      if (plan.createdById !== result.user.id) {
+        return notFound("Hồ sơ không tồn tại")
+      }
     }
 
     const deptHeads = await prisma.user.findMany({
@@ -73,8 +96,8 @@ export async function PATCH(
     const { id } = await params
     const existing = await prisma.procurementPlan.findUnique({ where: { id } })
 
-    if (!existing) return notFound("Kế hoạch không tồn tại")
-    if (existing.status !== "Draft") return badRequest("Chỉ được sửa kế hoạch ở trạng thái Nháp")
+    if (!existing) return notFound("Hồ sơ không tồn tại")
+    if (existing.status !== "Draft") return badRequest("Chỉ được sửa hồ sơ ở trạng thái Nháp")
     if (existing.createdById !== result.user.id && result.user.role !== "Admin") {
       return badRequest("Chỉ người tạo mới được chỉnh sửa")
     }
@@ -137,8 +160,8 @@ export async function DELETE(
     const { id } = await params
     const existing = await prisma.procurementPlan.findUnique({ where: { id } })
 
-    if (!existing) return notFound("Kế hoạch không tồn tại")
-    if (existing.status !== "Draft") return badRequest("Chỉ được hủy kế hoạch ở trạng thái Nháp")
+    if (!existing) return notFound("Hồ sơ không tồn tại")
+    if (existing.status !== "Draft") return badRequest("Chỉ được hủy hồ sơ ở trạng thái Nháp")
     if (existing.createdById !== result.user.id && result.user.role !== "Admin") {
       return badRequest("Chỉ người tạo mới được hủy")
     }
@@ -151,7 +174,7 @@ export async function DELETE(
       })
     })
 
-    return success({ message: "Đã hủy kế hoạch" })
+    return success({ message: "Đã hủy hồ sơ" })
   } catch (error) {
     console.error("DELETE /api/procurement/[id] error:", error)
     return serverError()

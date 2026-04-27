@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import prisma from "@/lib/prisma"
-import { getAuthUser, requireRole, success, badRequest, notFound, serverError } from "@/lib/api-helpers"
+import { requireRole, success, badRequest, notFound, serverError } from "@/lib/api-helpers"
 
 export async function POST(
   req: NextRequest,
@@ -12,57 +12,72 @@ export async function POST(
   try {
     const { id } = await params
     const user = result.user
+    const body = await req.json().catch(() => ({}))
+    const note: string | null = body.note || null
+    const executedAt: Date = body.executedAt ? new Date(body.executedAt) : new Date()
 
     const plan = await prisma.paymentPlan.findUnique({
       where: { id },
-      include: { items: true }
+      include: { items: true },
     })
 
     if (!plan) return notFound("Kế hoạch không tồn tại")
-    
     if (plan.status !== "Approved" && plan.status !== "PartiallyApproved") {
       return badRequest("Chỉ có thể thực hiện (chi tiền) các kế hoạch đã được duyệt")
     }
-
     if (user.role !== "Admin" && plan.companyId !== user.companyId) {
       return notFound("Kế hoạch không tồn tại")
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
-      const executed = await tx.paymentPlan.update({
+    // Generate voucher code: PC-YYYYMMDD-XXXX
+    const dateStr = executedAt.toISOString().slice(0, 10).replace(/-/g, "")
+    const count = await prisma.paymentVoucher.count()
+    const voucherCode = `PC-${dateStr}-${String(count + 1).padStart(4, "0")}`
+
+    const approvedItems = plan.items.filter((i) => i.status === "Approved")
+    const totalAmount = approvedItems.reduce(
+      (sum, i) => sum + Number(i.approvedAmount ?? i.originalAmount),
+      0
+    )
+
+    const voucher = await prisma.$transaction(async (tx) => {
+      await tx.paymentPlan.update({
         where: { id },
         data: { status: "Executed" },
       })
 
-      // Update related original requests to Closed
-      for (const item of plan.items) {
-        if (item.status === "Approved") {
-          if (item.paymentRequestId) {
-            await tx.paymentRequest.update({
-              where: { id: item.paymentRequestId },
-              data: { status: "Closed" }
-            })
-          }
-          if (item.advanceRequestId) {
-            await tx.paymentRequest.update({
-              where: { id: item.advanceRequestId },
-              data: { status: "Closed" }
-            }).catch(() => {
-              return tx.advanceRequest.update({
-                where: { id: item.advanceRequestId! },
-                data: { status: "Closed" }
-              })
-            })
-          }
+      const v = await tx.paymentVoucher.create({
+        data: {
+          code: voucherCode,
+          planId: id,
+          executedById: user.id,
+          totalAmount,
+          note,
+          executedAt,
+        },
+      })
+
+      for (const item of approvedItems) {
+        if (item.paymentRequestId) {
+          await tx.paymentRequest.update({
+            where: { id: item.paymentRequestId },
+            data: { status: "Closed" },
+          })
+        }
+        if (item.advanceRequestId) {
+          await tx.advanceRequest.update({
+            where: { id: item.advanceRequestId },
+            data: { status: "Closed" },
+          })
         }
       }
 
-      return executed
+      return v
     })
 
-    return success(updated)
+    return success(voucher)
   } catch (error) {
-    console.error(error)
+    console.error("execute error:", error)
     return serverError()
   }
 }

@@ -16,24 +16,12 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { Loader2, CreditCard, Wallet, Clock } from "lucide-react"
+import { useAppSWR } from "@/lib/swr"
 
 export default function DashboardPage() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const { data, isLoading } = useAppSWR("/api/dashboard")
 
-  useEffect(() => {
-    fetch("/api/dashboard")
-      .then(r => r.json())
-      .then(res => {
-        // success() returns data directly at top level (no .data wrapper)
-        if (res.stats) setData(res)
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [])
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex h-[80vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -41,7 +29,7 @@ export default function DashboardPage() {
     )
   }
 
-  if (!data) return null
+  if (!data?.stats) return null
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -149,9 +137,9 @@ export default function DashboardPage() {
         {/* Recent Activity */}
         <Card className="col-span-3">
           <CardHeader>
-            <CardTitle>Mua sắm gần đây</CardTitle>
+            <CardTitle>Hồ sơ gần đây</CardTitle>
             <CardDescription>
-              5 dự án mua sắm lớn đang triển khai.
+              5 hồ sơ/hợp đồng lớn đang triển khai.
             </CardDescription>
           </CardHeader>
           <CardContent>

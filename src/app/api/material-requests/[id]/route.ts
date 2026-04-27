@@ -18,7 +18,18 @@ export async function GET(
       include: {
         company: { select: { id: true, name: true, code: true } },
         createdBy: { select: { id: true, name: true, email: true, departmentId: true } },
-        procurementPlan: { select: { id: true, code: true, title: true } },
+        procurementPlan: {
+          select: {
+            id: true, code: true, contractCode: true, title: true, description: true,
+            attachments: {
+              select: {
+                id: true, fileName: true, fileUrl: true,
+                fileSize: true, mimeType: true, documentType: true, uploadedAt: true,
+              },
+              orderBy: { uploadedAt: "desc" as const },
+            },
+          },
+        },
         items: {
           include: { materialItem: { select: { id: true, code: true, name: true } } },
         },

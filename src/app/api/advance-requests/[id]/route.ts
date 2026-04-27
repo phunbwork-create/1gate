@@ -25,6 +25,13 @@ export async function GET(
         company: { select: { id: true, name: true, code: true } },
         createdBy: { select: { id: true, name: true, email: true } },
         vendor: { select: { id: true, name: true } },
+        purchaseRequest: {
+          select: {
+            id: true, code: true, totalAmount: true, vendorName: true,
+            materialRequest: { select: { id: true, code: true, purpose: true } },
+            procurementPlan: { select: { id: true, code: true, title: true } }
+          }
+        },
         approvalSteps: {
           include: { approver: { select: { id: true, name: true, email: true } } },
           orderBy: { stepOrder: "asc" },
@@ -52,15 +59,15 @@ export async function GET(
 
     const pendingRoles = chain.filter((r) => !approvedRoles.includes(r))
 
-    const expectedApprovers = await Promise.all(
-      pendingRoles.map(async (role) => {
-        const users = await prisma.user.findMany({
-          where: { role, companyId: req.companyId, isActive: true },
-          select: { name: true, email: true },
-        })
-        return { role, users }
-      })
-    )
+    // Single query for all pending approvers (avoids N+1)
+    const allApprovers = await prisma.user.findMany({
+      where: { role: { in: pendingRoles as any }, companyId: req.companyId, isActive: true },
+      select: { name: true, email: true, role: true },
+    })
+    const expectedApprovers = pendingRoles.map(role => ({
+      role,
+      users: allApprovers.filter(u => u.role === role),
+    }))
 
     return success({ ...req, approvalChain: chain, expectedApprovers })
   } catch (error) {

@@ -4,6 +4,7 @@ import { requireRole, success, badRequest, notFound, serverError } from "@/lib/a
 import { approvalActionSchema } from "@/schemas/business.schema"
 import { calculateCurrentStepIndex } from "@/lib/workflow"
 import { notifyWorkflow } from "@/lib/notification"
+import { autoGenerateSettlement } from "@/lib/settlement-helper"
 
 // Approval chain: DeptHead → Accountant
 const APPROVAL_CHAIN = ["DeptHead", "Accountant"] as const
@@ -83,6 +84,14 @@ export async function POST(
           await tx.purchaseRequest.update({
             where: { id },
             data: { status: "Approved", approvedAt: new Date() },
+          })
+          // Auto-generate Settlement
+          await autoGenerateSettlement(tx, {
+            sourceType: "PurchaseRequest",
+            sourceId: id,
+            sourceCode: request.code,
+            createdById: request.createdById,
+            amount: request.totalAmount ? Number(request.totalAmount) : undefined,
           })
         } else {
           await tx.purchaseRequest.update({
