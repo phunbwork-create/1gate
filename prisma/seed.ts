@@ -6,7 +6,8 @@ import { hash } from "bcryptjs"
 
 // For seeding, use direct PostgreSQL connection via pg adapter
 const pool = new pg.Pool({
-  connectionString: "postgres://postgres:postgres@localhost:51214/template1?sslmode=disable",
+  connectionString: process.env.DIRECT_DATABASE_URL
+    || "postgres://postgres:postgres@localhost:51214/template1?sslmode=disable",
 })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
