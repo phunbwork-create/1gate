@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
+  // output: "standalone", // Only for Docker — Vercel manages its own output
   experimental: {
     // Prevent Prisma from being bundled into client-side code (Next.js 14)
     serverComponentsExternalPackages: ["@prisma/client", "prisma"],
