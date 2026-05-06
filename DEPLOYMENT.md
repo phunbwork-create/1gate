@@ -1,100 +1,227 @@
-# 🚀 Hướng Dẫn Deploy 1Gate Lên VPS (Docker)
+# 🚀 1Gate — Hướng Dẫn DevOps Build & Deploy (Docker)
 
-Bộ source code đã được cấu hình hoàn chỉnh để đóng gói và chạy bằng Docker Compose. 
-Nhờ việc cấu hình **Next.js Standalone**, dung lượng image được tối ưu từ ~1GB xuống chỉ còn **~200MB**.
+## Tổng Quan Kiến Trúc
 
-## 1. Yêu cầu hệ thống (VPS)
-- OS: Ubuntu 22.04 LTS hoặc tương đương.
-- RAM: Tối thiểu 2GB (Khuyến nghị 4GB).
-- Đã cài đặt [Docker](https://docs.docker.com/engine/install/ubuntu/) và [Docker Compose](https://docs.docker.com/compose/install/).
-- Tên miền (Domain) đã trỏ IP về VPS (để cài HTTPS).
+```
+┌─────────────────────┐     docker push      ┌──────────────────┐     docker pull     ┌──────────────────┐
+│   Máy Dev / CI/CD   │ ──────────────────► │  Docker Registry  │ ◄──────────────── │   VPS Production  │
+│                     │                      │  (Hub/Harbor/GHCR)│                    │                  │
+│  source code        │                      │  1gate-app:latest │                    │  docker-compose  │
+│  + Dockerfile       │                      │                   │                    │  + .env          │
+│  → docker build     │                      │                   │                    │  → docker up -d  │
+└─────────────────────┘                      └──────────────────┘                    └──────────────────┘
+```
 
-## 2. Chuẩn bị mã nguồn
-Bạn có thể đưa source code lên VPS bằng 2 cách:
-1. **Dùng Git (Khuyến nghị):** Push code lên GitHub/GitLab (private repo) rồi clone về VPS.
-2. **Dùng SFTP/SCP:** Nén thư mục project (bỏ qua `node_modules` và `.next`) rồi gửi trực tiếp lên VPS.
+**Workflow:**
+1. **Build** image từ source code (tại máy dev hoặc CI/CD pipeline)
+2. **Push** image lên Docker Registry (Docker Hub, Harbor, GHCR...)
+3. **Pull & Run** trên VPS chỉ cần `docker-compose.yml` + `.env` (KHÔNG cần source code)
 
-> **QUAN TRỌNG:**
-> Hãy chắc chắn các file sau có mặt trên VPS:
-> - `Dockerfile`
-> - `docker-compose.yml`
-> - `entrypoint.sh` 
-> - `.dockerignore`
+---
 
-## 3. Cấu hình biến môi trường
-Trên VPS, tại thư mục chứa code, copy file `.env.example` thành `.env`:
+## 1. Yêu cầu hệ thống
+
+### Máy Build (Dev / CI/CD)
+- Docker Engine 20+ (có buildx)
+- Quyền truy cập source code
+- Tài khoản Docker Registry để push image
+
+### Máy chạy (VPS Production)
+- OS: Ubuntu 22.04 LTS hoặc tương đương
+- RAM: Tối thiểu 2GB (Khuyến nghị 4GB)
+- Docker Engine 20+ & Docker Compose v2
+- **KHÔNG cần** source code, Node.js, npm
+
+---
+
+## 2. Build Docker Image (Tại máy Dev / CI)
+
+### 2.1. Build image
+
+```bash
+# Di chuyển vào thư mục chứa source code + Dockerfile
+cd /path/to/1gate-app
+
+# Build image (Multi-stage: deps → build → runner, ~200MB final)
+docker build -t 1gate-app:latest .
+```
+
+### 2.2. Tag theo registry
+
+```bash
+# Ví dụ 1: Docker Hub
+docker tag 1gate-app:latest mycompany/1gate-app:latest
+docker tag 1gate-app:latest mycompany/1gate-app:v1.0.0
+
+# Ví dụ 2: Harbor (private registry)
+docker tag 1gate-app:latest harbor.mycompany.com/smt/1gate-app:latest
+
+# Ví dụ 3: GitHub Container Registry (GHCR)
+docker tag 1gate-app:latest ghcr.io/myorg/1gate-app:latest
+```
+
+### 2.3. Push lên registry
+
+```bash
+# Login vào registry (chỉ cần 1 lần)
+docker login              # Docker Hub
+# docker login harbor.mycompany.com   # Harbor
+# docker login ghcr.io                # GHCR
+
+# Push image
+docker push mycompany/1gate-app:latest
+docker push mycompany/1gate-app:v1.0.0   # Tag version cụ thể (khuyến nghị)
+```
+
+### 2.4. (Tuỳ chọn) Build & Push bằng 1 lệnh
+
+```bash
+# Build + tag + push cùng lúc
+docker build -t mycompany/1gate-app:latest -t mycompany/1gate-app:v1.0.0 .
+docker push mycompany/1gate-app --all-tags
+```
+
+---
+
+## 3. Deploy Trên VPS (Production)
+
+### 3.1. Chuẩn bị trên VPS
+
+Chỉ cần copy thư mục `docker-deploy-package/` lên VPS. Thư mục này chứa:
+- `docker-compose.yml` — Cấu hình services (App + PostgreSQL)
+- `.env.example` — Mẫu biến môi trường
+
+```bash
+# Trên VPS, tạo thư mục deploy
+mkdir -p /opt/1gate && cd /opt/1gate
+
+# Copy 2 file từ docker-deploy-package/ lên VPS
+# Hoặc dùng scp/sftp/rsync từ máy dev:
+# scp docker-deploy-package/* user@vps-ip:/opt/1gate/
+```
+
+### 3.2. Cấu hình biến môi trường
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-Cập nhật lại các biến bảo mật:
+**Các biến BẮT BUỘC phải thay đổi:**
 
-```env
-POSTGRES_USER="onegate_db_user"
-POSTGRES_PASSWORD="YourSuperStrongPasswordHere!"
-POSTGRES_DB="onegate_production"
+| Biến | Mô tả | Cách tạo |
+|------|--------|----------|
+| `IMAGE_NAME` | Tên image trên registry | VD: `mycompany/1gate-app` |
+| `IMAGE_TAG` | Version tag | VD: `latest` hoặc `v1.0.0` |
+| `POSTGRES_PASSWORD` | Mật khẩu DB | Đặt mật khẩu mạnh |
+| `NEXTAUTH_SECRET` | JWT Secret | `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | URL public | `https://your-domain.com` |
 
-# Thay thế bằng secret ngẫu nhiên (chạy `openssl rand -base64 32` để lấy mã)
-NEXTAUTH_SECRET="your-generated-random-secret"
-NEXTAUTH_URL="https://your-domain.com" # Hoặc http://IP_VPS:3000 nếu chưa có domain
-
-# Các cấu hình khác (Telegram, Resend) nếu cần
-```
-
-*Mẹo: Trong `docker-compose.yml` đã lấy connection string tự động dựa trên biến `POSTGRES_USER`, `POSTGRES_PASSWORD` nên bạn không cần tự ghép chuỗi `DATABASE_URL` nữa.*
-
-## 4. Build và Chạy
-
-Thực thi lệnh sau tại thư mục chứa `docker-compose.yml`:
+### 3.3. Login vào registry (nếu dùng private registry)
 
 ```bash
-# Cấp quyền thực thi cho entrypoint (nếu code tải về bị mất quyền)
-chmod +x entrypoint.sh
-
-# Build image và khởi chạy ngầm
-docker compose up -d --build
+docker login harbor.mycompany.com
+# hoặc: docker login ghcr.io
 ```
 
-**Quá trình này sẽ:**
-1. Kéo image `postgres:16-alpine` và khởi chạy database.
-2. Build ứng dụng Next.js ở chế độ tối ưu (Standalone).
-3. Khi container app khởi động, file `entrypoint.sh` sẽ tự động chạy lệnh `npx prisma migrate deploy` để tạo cấu trúc bảng trong DB, trước khi chạy server Node.js.
+### 3.4. Pull image và khởi chạy
 
-Kiểm tra log xem ứng dụng đã chạy thành công chưa:
 ```bash
+# Pull image mới nhất từ registry
+docker compose pull
+
+# Khởi chạy (chạy ngầm)
+docker compose up -d
+```
+
+**Lần đầu chạy,** container app sẽ tự động:
+1. Chạy `prisma migrate deploy` — tạo bảng trong PostgreSQL
+2. Khởi động Next.js server
+
+### 3.5. Kiểm tra
+
+```bash
+# Xem logs
 docker compose logs -f app
+
+# Kiểm tra health
+docker compose ps
+
+# Test truy cập
+curl http://localhost:3000/login
 ```
 
-## 5. Tạo dữ liệu mẫu khởi tạo (Lần đầu)
-Vì là database mới cứng, bạn cần có tài khoản Admin đầu tiên. Cài đặt sẵn script seed:
+### 3.6. Tạo tài khoản Admin (Lần đầu)
 
 ```bash
 docker compose exec app sh -c "npx tsx prisma/seed.ts"
 ```
 
-Tài khoản mặc định được tạo ra:
+Tài khoản mặc định:
 - Email: `admin@1gate.app`
-- Pass: `Admin@123`
+- Password: `Admin@123`
 
-## 6. (Nâng cao) Thiết lập Nginx Reverse Proxy & SSL
+> ⚠️ **Đổi mật khẩu admin ngay sau khi đăng nhập lần đầu!**
 
-Để chạy thực tế với domain và bảo mật HTTPS (VD: `https://1gate.mycompany.com`), bạn nên dùng Nginx kết hợp Certbot.
+---
 
-### Cài đặt Nginx và Certbot
+## 4. Cập Nhật Ứng Dụng
+
+### Tại máy Build (Dev / CI):
+```bash
+# Build image mới
+docker build -t mycompany/1gate-app:v1.1.0 -t mycompany/1gate-app:latest .
+docker push mycompany/1gate-app --all-tags
+```
+
+### Tại VPS:
+```bash
+cd /opt/1gate
+
+# (Tuỳ chọn) Cập nhật IMAGE_TAG trong .env nếu dùng version tag
+# nano .env → IMAGE_TAG=v1.1.0
+
+# Pull image mới & khởi động lại
+docker compose pull
+docker compose up -d
+```
+
+> Lệnh `up -d` sẽ tự phát hiện image mới và recreate container app. Database không bị ảnh hưởng.
+
+---
+
+## 5. Vận Hành Thường Ngày
+
+| Tác vụ | Lệnh |
+|--------|-------|
+| Xem logs | `docker compose logs -f app` |
+| Restart app | `docker compose restart app` |
+| Tắt toàn bộ | `docker compose down` |
+| Tắt + xoá data DB | `docker compose down -v` ⚠️ |
+| Backup DB | `docker compose exec db pg_dump -U onegate onegate > backup.sql` |
+| Restore DB | `cat backup.sql \| docker compose exec -T db psql -U onegate onegate` |
+| Xem disk usage | `docker system df` |
+| Dọn image cũ | `docker image prune -a` |
+
+---
+
+## 6. (Nâng Cao) Nginx Reverse Proxy + SSL
+
+### Cài đặt
 ```bash
 sudo apt update
 sudo apt install nginx certbot python3-certbot-nginx
 ```
 
 ### Cấu hình Nginx
-Tạo file cấu hình: `sudo nano /etc/nginx/sites-available/1gate`
+Tạo file: `sudo nano /etc/nginx/sites-available/1gate`
 
 ```nginx
 server {
     listen 80;
     server_name your-domain.com www.your-domain.com;
+
+    client_max_body_size 50M;
 
     location / {
         proxy_pass http://localhost:3000;
@@ -102,24 +229,39 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
 }
 ```
 
-Kích hoạt và chạy lại:
 ```bash
 sudo ln -s /etc/nginx/sites-available/1gate /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### Lấy chứng chỉ SSL (Let's Encrypt)
+### SSL (Let's Encrypt)
 ```bash
 sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 ```
 
-Làm theo hướng dẫn trên màn hình, Certbot sẽ tự động cấu hình lại Nginx để chạy HTTPS.
+---
+
+## 7. Thông Tin Kỹ Thuật Docker Image
+
+| Thông số | Giá trị |
+|----------|---------|
+| Base image | `node:20-alpine` |
+| Build stages | 3 (deps → builder → runner) |
+| Final image size | ~200MB |
+| User | `nextjs` (non-root, UID 1001) |
+| Port | 3000 |
+| Health check | `wget http://localhost:3000/login` mỗi 30s |
+| Entrypoint | `entrypoint.sh` (chạy migrate → start server) |
 
 ---
-🔥 **Hoàn tất!** Hệ thống 1Gate của bạn đã sẵn sàng chạy production.
+
+🔥 **Hoàn tất!** Hệ thống 1Gate đã sẵn sàng cho production.
