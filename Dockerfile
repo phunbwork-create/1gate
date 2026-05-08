@@ -60,15 +60,10 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/dotenv ./node_modules/dotenv
 
-# Copy tsx + typescript (needed for prisma.config.ts parsing)
-COPY --from=builder /app/node_modules/tsx ./node_modules/tsx
-COPY --from=builder /app/node_modules/typescript ./node_modules/typescript
-
-# Copy .bin directory so CLI tools are resolvable
-COPY --from=builder /app/node_modules/.bin ./node_modules/.bin
+# Install prisma CLI + all transitive deps (effect, c12, etc.) in runner
+COPY --from=builder /app/package.json ./package.json
+RUN npm install --no-save prisma dotenv tsx typescript
 
 # Create uploads directory for local file storage
 RUN mkdir -p public/uploads && chown -R nextjs:nodejs public/uploads
