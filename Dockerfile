@@ -59,10 +59,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Install prisma CLI + all transitive deps (effect, c12, etc.) in runner
-COPY --from=builder /app/package.json ./package.json
+# Install prisma CLI + ALL transitive deps fresh (do NOT pre-copy @prisma)
 RUN npm install --no-save prisma dotenv tsx typescript
 
 # Create uploads directory for local file storage
