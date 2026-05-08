@@ -63,6 +63,13 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/dotenv ./node_modules/dotenv
 
+# Copy tsx + typescript (needed for prisma.config.ts parsing)
+COPY --from=builder /app/node_modules/tsx ./node_modules/tsx
+COPY --from=builder /app/node_modules/typescript ./node_modules/typescript
+
+# Copy .bin directory so CLI tools are resolvable
+COPY --from=builder /app/node_modules/.bin ./node_modules/.bin
+
 # Create uploads directory for local file storage
 RUN mkdir -p public/uploads && chown -R nextjs:nodejs public/uploads
 
