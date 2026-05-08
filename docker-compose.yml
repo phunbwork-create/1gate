@@ -27,6 +27,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - service-net
 
   # ── 1Gate Application ────────────────────────────
   app:
@@ -56,9 +58,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - service-net
 
 volumes:
   pgdata:
     driver: local
   uploads:
     driver: local
+
+networks:
+  service-net:
+    external: true
