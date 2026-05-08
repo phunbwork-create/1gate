@@ -46,7 +46,7 @@ services:
 
       # NextAuth
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-this-in-production}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://1gate.thanhphattech.vn}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://1gate.thanhphattech.vn}
       AUTH_TRUST_HOST: "true"
 
       # Optional services
