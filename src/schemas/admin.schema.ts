@@ -55,6 +55,18 @@ export const updateVendorSchema = createVendorSchema.partial().extend({
   isActive: z.boolean().optional(),
 })
 
+// ─── DEPARTMENT SCHEMAS ──────────────────────────────────────────────────────
+
+export const createDepartmentSchema = z.object({
+  name: z.string().min(2, "Tên phòng ban phải có ít nhất 2 ký tự"),
+  code: z.string().min(1, "Mã phòng ban không được trống").max(10),
+  companyId: z.string().min(1, "Vui lòng chọn công ty"),
+})
+
+export const updateDepartmentSchema = createDepartmentSchema.partial().extend({
+  isActive: z.boolean().optional(),
+})
+
 // ─── MATERIAL ITEM SCHEMAS ───────────────────────────────────────────────────
 
 export const createMaterialItemSchema = z.object({
@@ -73,3 +85,5 @@ export type UpdateCompanyInput = z.infer<typeof updateCompanySchema>
 export type CreateVendorInput = z.infer<typeof createVendorSchema>
 export type UpdateVendorInput = z.infer<typeof updateVendorSchema>
 export type CreateMaterialItemInput = z.infer<typeof createMaterialItemSchema>
+export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>
+export type UpdateDepartmentInput = z.infer<typeof updateDepartmentSchema>

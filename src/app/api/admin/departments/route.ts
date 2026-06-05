@@ -1,13 +1,7 @@
 import { NextRequest } from "next/server"
 import prisma from "@/lib/prisma"
 import { requireRole, success, badRequest, serverError, getSearchParam } from "@/lib/api-helpers"
-import { z } from "zod"
-
-const createDepartmentSchema = z.object({
-  name: z.string().min(2, "Tên phòng ban phải có ít nhất 2 ký tự"),
-  code: z.string().min(1, "Mã phòng ban không được trống").max(10),
-  companyId: z.string().min(1, "Vui lòng chọn công ty"),
-})
+import { createDepartmentSchema } from "@/schemas/admin.schema"
 
 // ─── GET /api/admin/departments ──────────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -16,15 +10,23 @@ export async function GET(req: NextRequest) {
 
   try {
     const companyId = getSearchParam(req, "companyId")
+    const search = getSearchParam(req, "search")
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {}
     if (companyId) where.companyId = companyId
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { code: { contains: search, mode: "insensitive" } },
+      ]
+    }
 
     const departments = await prisma.department.findMany({
       where,
       include: {
         company: { select: { id: true, name: true, code: true } },
+        _count: { select: { users: true } },
       },
       orderBy: [{ company: { code: "asc" } }, { name: "asc" }],
     })
@@ -59,6 +61,7 @@ export async function POST(req: NextRequest) {
       data: parsed.data,
       include: {
         company: { select: { id: true, name: true, code: true } },
+        _count: { select: { users: true } },
       },
     })
 

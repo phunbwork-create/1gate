@@ -39,6 +39,7 @@ import {
   FileCheck,
   Users,
   Building2,
+  Building,
   Store,
   Boxes,
   ChevronLeft,
@@ -62,6 +63,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   FileCheck,
   Users,
   Building2,
+  Building,
   Store,
   Boxes,
 }

@@ -172,6 +172,7 @@ export const MENU_ITEMS: MenuItem[] = [
 export const ADMIN_MENU_ITEMS: MenuItem[] = [
   { title: "Người dùng", href: "/admin/users", icon: "Users", resource: "user" },
   { title: "Công ty", href: "/admin/companies", icon: "Building2", resource: "company" },
+  { title: "Phòng ban", href: "/admin/departments", icon: "Building", resource: "department" },
   { title: "Nhà cung cấp", href: "/admin/vendors", icon: "Store", resource: "vendor" },
   { title: "Vật tư", href: "/admin/materials", icon: "Boxes", resource: "materialItem" },
 ]
