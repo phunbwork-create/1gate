@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hướng Dẫn Sử Dụng Hệ Thống 1Gate</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --bg-color: #f8fafc;
+            --text-color: #334155;
+            --border-color: #e2e8f0;
+            --accent-color: #f59e0b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            border-bottom: 3px solid var(--primary-color);
+            padding-bottom: 20px;
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            margin-top: 40px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #475569;
+            margin-top: 25px;
+        }
+
+        p, li {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+        }
+
+        ul {
+            padding-left: 20px;
+        }
+
+        .highlight-box {
+            background-color: #eff6ff;
+            border-left: 4px solid var(--primary-color);
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .warning-box {
+            background-color: #fffbeb;
+            border-left: 4px solid var(--accent-color);
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            background-color: var(--primary-color);
+            color: white;
+            text-align: center;
+            border-radius: 50%;
+            line-height: 28px;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        .role-badge {
+            display: inline-block;
+            background-color: #e2e8f0;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 15px;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            color: #94a3b8;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Cẩm Nang Sử Dụng 1Gate</h1>
+    <p style="text-align: center; font-size: 1.2em; color: #64748b;">Hệ thống quản lý phê duyệt và chi tiêu nội bộ</p>
+
+    <div class="highlight-box">
+        <strong>Giới thiệu ngắn gọn:</strong> 1Gate là nơi để bạn tạo các phiếu xin cấp tiền (tạm ứng, thanh toán), xin mua đồ dùng (vật tư) và để các sếp, kế toán duyệt tiền một cách nhanh chóng, minh bạch trên một ứng dụng duy nhất.
+    </div>
+
+    <!-- PHẦN 1: TẤT CẢ MỌI NGƯỜI -->
+    <h2>Phần 1: Dành cho tất cả mọi người</h2>
+    <div class="role-badge">Nhân viên | Quản lý | Kế toán | Giám đốc</div>
+
+    <h3>1. Đăng nhập vào hệ thống</h3>
+    <p><span class="step-number">1</span> Dùng <strong>Email công ty</strong> của bạn để đăng nhập.</p>
+    <p><span class="step-number">2</span> Mật khẩu lần đầu tiên là: <code>123456</code>. Nhớ đổi mật khẩu ngay để bảo mật nhé!</p>
+
+    <h3>2. Cài đặt nhận thông báo qua Telegram (Rất quan trọng)</h3>
+    <p>Để hệ thống tự động báo tin nhắn cho bạn khi có phiếu cần duyệt hoặc tiền đã được chi, hãy làm theo cách sau:</p>
+    <ul>
+        <li>Vào phần <strong>Hồ sơ cá nhân (Profile)</strong> ở góc dưới bên trái màn hình.</li>
+        <li>Mở ứng dụng Telegram trên điện thoại, tìm tên người dùng <code>@RawDataBot</code> để lấy một dãy số gọi là Chat ID (ví dụ: 1005223428).</li>
+        <li>Ghi dãy số đó vào ô <strong>Telegram ID</strong> trong Hồ sơ cá nhân rồi lưu lại.</li>
+    </ul>
+
+    <h3>3. Tìm kiếm và lọc thông tin nhanh</h3>
+    <p>Bạn có thể dễ dàng tìm lại các phiếu cũ bằng cách sử dụng thanh tìm kiếm (nhập tên, mã số phiếu) hoặc dùng nút <strong>Lọc Nâng Cao</strong> để xem các phiếu theo khoảng thời gian, theo số tiền, hoặc theo tình trạng (đang chờ duyệt, đã xong...).</p>
+
+
+    <!-- PHẦN 2: DÀNH CHO NGƯỜI LÀM ĐỀ NGHỊ -->
+    <h2>Phần 2: Xin tiền / Xin mua đồ</h2>
+    <div class="role-badge">Tất cả nhân viên có nhu cầu</div>
+
+    <h3>1. Tạo phiếu xin Tạm ứng hoặc Thanh toán</h3>
+    <p>Khi bạn cần tiền để đi công tác, tiếp khách, hoặc thanh toán tiền cho nhà cung cấp:</p>
+    <p><span class="step-number">1</span> Vào menu <strong>Thanh toán</strong> &gt; Chọn <strong>Đề nghị Tạm ứng</strong> hoặc <strong>Đề nghị Thanh toán</strong>.</p>
+    <p><span class="step-number">2</span> Bấm nút <strong>[+ Tạo đề nghị mới]</strong>.</p>
+    <p><span class="step-number">3</span> Điền đầy đủ số tiền, số tài khoản nhận tiền, và lý do xin tiền.</p>
+    <p><span class="step-number">4</span> <strong>Bắt buộc:</strong> Chụp ảnh hoặc tải lên các giấy tờ chứng minh như hóa đơn, báo giá, hợp đồng... để đính kèm vào phiếu.</p>
+    <p><span class="step-number">5</span> Bấm <strong>[Lưu nháp]</strong> nếu chưa viết xong, hoặc <strong>[Trình duyệt]</strong> để gửi đi.</p>
+
+    <div class="warning-box">
+        <strong>Lưu ý về giấy tờ:</strong> 
+        <br> - Từ 5 triệu trở lên: Phải có Báo giá đính kèm.
+        <br> - Từ 20 triệu trở lên: Phải có Hợp đồng đính kèm.
+    </div>
+
+    <h3>2. Xin cấp vật tư (đồ dùng)</h3>
+    <p>Khi phòng ban cần văn phòng phẩm, thiết bị làm việc... bạn cần làm <strong>Đề nghị cấp vật tư</strong>. Nếu trong kho không có sẵn, phiếu của bạn sẽ tự động chuyển thành kế hoạch đi mua hàng.</p>
+
+
+    <!-- PHẦN 3: DÀNH CHO QUẢN LÝ / GIÁM ĐỐC -->
+    <h2>Phần 3: Duyệt phiếu</h2>
+    <div class="role-badge">Trưởng phòng | Giám đốc</div>
+
+    <p>Khi có nhân viên xin tiền/mua đồ, bạn sẽ nhận được tin nhắn trên Telegram.</p>
+    <p><span class="step-number">1</span> Bấm vào đường link trong tin nhắn Telegram để mở phiếu ra xem.</p>
+    <p><span class="step-number">2</span> Xem kỹ lý do, số tiền và các giấy tờ đính kèm.</p>
+    <p><span class="step-number">3</span> Chọn <strong>[Đồng ý]</strong> hoặc <strong>[Từ chối]</strong>.</p>
+    
+    <div class="warning-box">
+        <strong>Quy định bắt buộc:</strong> Nếu bạn chọn <strong>[Từ chối]</strong> hoặc muốn trả lại phiếu cho nhân viên sửa, bạn <strong>bắt buộc phải ghi rõ lý do</strong> vào ô ghi chú để nhân viên biết cách sửa lại cho đúng.
+    </div>
+
+
+    <!-- PHẦN 4: DÀNH CHO KẾ TOÁN -->
+    <h2>Phần 4: Lên kế hoạch trả tiền (Dành riêng cho Kế toán)</h2>
+    <div class="role-badge">Kế toán thanh toán | Kế toán trưởng</div>
+
+    <p>Thay vì trả tiền lắt nhắt từng món, Kế toán sẽ gom các phiếu đã được sếp duyệt lại để chuyển tiền một lần.</p>
+    
+    <h3>1. Lập nhóm các khoản cần chi (Kế hoạch chi tiền)</h3>
+    <p><span class="step-number">1</span> Vào menu <strong>Kế toán</strong> &gt; <strong>Kế hoạch chi tiền</strong> &gt; <strong>[+ Lập kế hoạch mới]</strong>.</p>
+    <p><span class="step-number">2</span> Chọn ngày dự định sẽ đi ngân hàng chuyển khoản.</p>
+    <p><span class="step-number">3</span> Đánh dấu chọn các phiếu xin tiền đã hợp lệ. Hệ thống sẽ tự cộng tổng số tiền để báo cáo Giám đốc.</p>
+
+    <h3>2. Bấm nút đã trả tiền và in phiếu</h3>
+    <p>Sau khi Giám đốc đồng ý chi cục tiền này và Kế toán đã chuyển khoản xong:</p>
+    <p><span class="step-number">1</span> Mở <strong>Kế hoạch chi tiền</strong> đó ra.</p>
+    <p><span class="step-number">2</span> Bấm nút <strong>[Ghi nhận Thực Chi]</strong> (Xác nhận là đã chuyển tiền).</p>
+    <p><span class="step-number">3</span> Bấm vào nút <strong>[In / Lưu PDF]</strong> để in Phiếu Chi ra giấy, xin chữ ký và cất vào bìa còng hồ sơ.</p>
+
+    <!-- KẾT THÚC -->
+    <div class="footer">
+        <p>Tài liệu hướng dẫn được thiết kế riêng cho người dùng hệ thống 1Gate.</p>
+        <p>Nếu gặp khó khăn trong quá trình sử dụng, vui lòng liên hệ Bộ phận Hành chính/IT để được hỗ trợ trực tiếp.</p>
+    </div>
+</div>
+
+</body>
+</html>

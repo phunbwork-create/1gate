@@ -41,7 +41,7 @@ export default function MaterialRequestNewPage() {
     try {
       const [matRes, planRes] = await Promise.all([
         fetch("/api/materials?limit=500"),
-        fetch("/api/procurement?status=Approved&limit=100"),
+        fetch("/api/procurement?limit=100"),
       ])
       const matJson = await matRes.json()
       const planJson = await planRes.json()

@@ -97,9 +97,13 @@ export async function PATCH(
     const existing = await prisma.procurementPlan.findUnique({ where: { id } })
 
     if (!existing) return notFound("Hồ sơ không tồn tại")
-    if (existing.status !== "Draft") return badRequest("Chỉ được sửa hồ sơ ở trạng thái Nháp")
-    if (existing.createdById !== result.user.id && result.user.role !== "Admin") {
-      return badRequest("Chỉ người tạo mới được chỉnh sửa")
+
+    // DeptHead/Admin có thể sửa metadata ở mọi trạng thái
+    // Staff chỉ sửa được ở Draft
+    const isPrivileged = result.user.role === "Admin" || result.user.role === "DeptHead"
+    if (!isPrivileged) {
+      if (existing.status !== "Draft") return badRequest("Chỉ được sửa hồ sơ ở trạng thái Nháp")
+      if (existing.createdById !== result.user.id) return badRequest("Chỉ người tạo mới được chỉnh sửa")
     }
 
     const body = await req.json()
@@ -108,15 +112,50 @@ export async function PATCH(
       return badRequest(parsed.error.issues.map((e) => e.message).join(", "))
     }
 
-    const { items, ...planData } = parsed.data
+    const { items, contractCode, contractType, partnerName, partnerTaxCode, partnerRepresentative,
+      signDate, effectiveDate, expiryDate, contractValue, vatRate, currency, ...planData } = parsed.data
+
+    // Rebuild description JSON with contract metadata
+    let descriptionUpdate: string | undefined
+    if (contractType !== undefined || partnerName !== undefined || partnerTaxCode !== undefined ||
+        partnerRepresentative !== undefined || signDate !== undefined || effectiveDate !== undefined ||
+        expiryDate !== undefined || contractValue !== undefined || vatRate !== undefined ||
+        currency !== undefined || planData.description !== undefined) {
+      // Parse existing description to preserve existing meta
+      let existingMeta: Record<string, unknown> = {}
+      if (existing.description) {
+        try { existingMeta = JSON.parse(existing.description) } catch { existingMeta = { note: existing.description } }
+      }
+      const newMeta = {
+        ...existingMeta,
+        ...(planData.description !== undefined ? { note: planData.description } : {}),
+        ...(contractType !== undefined ? { contractType } : {}),
+        ...(partnerName !== undefined ? { partnerName } : {}),
+        ...(partnerTaxCode !== undefined ? { partnerTaxCode } : {}),
+        ...(partnerRepresentative !== undefined ? { partnerRepresentative } : {}),
+        ...(signDate !== undefined ? { signDate } : {}),
+        ...(effectiveDate !== undefined ? { effectiveDate } : {}),
+        ...(expiryDate !== undefined ? { expiryDate } : {}),
+        ...(contractValue !== undefined ? { contractValue } : {}),
+        ...(vatRate !== undefined ? { vatRate } : {}),
+        ...(currency !== undefined ? { currency } : {}),
+      }
+      descriptionUpdate = JSON.stringify(newMeta)
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       await tx.procurementPlan.update({
         where: { id },
-        data: { ...planData, updatedAt: new Date() },
+        data: {
+          ...(planData.title ? { title: planData.title } : {}),
+          ...(contractCode !== undefined ? { contractCode } : {}),
+          ...(descriptionUpdate !== undefined ? { description: descriptionUpdate } : {}),
+          updatedAt: new Date(),
+        },
       })
 
-      if (items) {
+      // Chỉ cho phép thay đổi items khi ở Draft
+      if (items && existing.status === "Draft") {
         await tx.procurementPlanItem.deleteMany({ where: { planId: id } })
         await tx.procurementPlanItem.createMany({
           data: items.map((item) => ({

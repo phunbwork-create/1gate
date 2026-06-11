@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { AttachmentPanel, type AttachmentItem } from "@/components/business/attachment-panel"
 import {
-  Loader2, ArrowLeft, Trash2, FileCheck, EyeOff, Calendar, Building2, User, Hash, Banknote,
+  Loader2, ArrowLeft, Trash2, FileCheck, EyeOff, Calendar, Building2, User, Hash, Banknote, Pencil,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -102,6 +102,7 @@ export default function ContractDetailPage() {
   const isOwner = currentUser?.id === plan?.createdById
   const isDraft = plan?.status === "Draft"
   const canCancel = (isOwner || userRole === "Admin") && isDraft
+  const canEdit = (userRole === "DeptHead" || userRole === "Admin") || (isOwner && isDraft)
 
   async function handleCancel() {
     setCancelling(true)
@@ -154,6 +155,13 @@ export default function ContractDetailPage() {
         </div>
 
         <div className="flex gap-2">
+          {canEdit && (
+            <Link href={`/procurement/${id}/edit`}>
+              <Button variant="outline" size="sm" className="gap-1">
+                <Pencil className="h-3.5 w-3.5" /> Chỉnh sửa
+              </Button>
+            </Link>
+          )}
           {canCancel && (
             <Button variant="destructive" size="sm" className="gap-1" onClick={() => setCancelOpen(true)}>
               <Trash2 className="h-3.5 w-3.5" /> Hủy hồ sơ

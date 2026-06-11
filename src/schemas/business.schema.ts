@@ -31,6 +31,7 @@ export const createProcurementPlanSchema = z.object({
 
 export const updateProcurementPlanSchema = z.object({
   title: z.string().min(2, "Tiêu đề phải có ít nhất 2 ký tự").optional(),
+  contractCode: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
   contractType: z.string().optional().nullable(),
   partnerName: z.string().optional().nullable(),

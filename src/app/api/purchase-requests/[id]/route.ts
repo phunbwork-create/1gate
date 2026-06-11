@@ -32,6 +32,13 @@ export async function GET(
           include: { approver: { select: { id: true, name: true } } },
           orderBy: { stepOrder: "asc" },
         },
+        attachments: {
+          select: {
+            id: true, fileName: true, fileUrl: true,
+            fileSize: true, mimeType: true, documentType: true, uploadedAt: true,
+          },
+          orderBy: { uploadedAt: "desc" },
+        },
       },
     })
 

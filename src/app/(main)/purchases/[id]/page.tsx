@@ -18,11 +18,22 @@ import {
 } from "@/components/ui/dialog"
 import { StatusBadge } from "@/components/business/status-badge"
 import { ApprovalTimeline } from "@/components/business/approval-timeline"
+import { AttachmentPanel, type AttachmentItem } from "@/components/business/attachment-panel"
 import { Loader2, ArrowLeft, Send, CheckCircle2, XCircle, RotateCcw } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+
+// Loại tài liệu cho phép upload trên ĐN Mua hàng
+const PURCHASE_ALLOWED_TYPES = [
+  { value: "Quotation" as const, label: "Báo giá" },
+  { value: "Contract" as const, label: "Hợp đồng" },
+  { value: "Invoice" as const, label: "Hóa đơn" },
+  { value: "Other" as const, label: "Khác" },
+]
 
 interface PReqDetail {
   id: string; code: string; vendorName: string | null; status: RequestStatus
   totalAmount: number | null; note: string | null; createdById: string
+  isLocked: boolean
   company: { code: string; name: string }
   createdBy: { id: string; name: string }
   items: {
@@ -34,6 +45,7 @@ interface PReqDetail {
     id: string; code: string; purpose: string | null
     procurementPlan?: { id: string; code: string; title: string } | null
   } | null
+  attachments?: AttachmentItem[]
   approvalSteps: {
     id: string; role: Role; stepOrder: number; action: string | null
     comment: string | null; actedAt: string | null
@@ -53,6 +65,7 @@ export default function PurchaseRequestDetailPage() {
   const [approveOpen, setApproveOpen] = useState(false)
   const [approveAction, setApproveAction] = useState<"approve" | "reject" | "return">("approve")
   const [approveComment, setApproveComment] = useState("")
+  const { toast } = useToast()
 
   const fetchReq = useCallback(async () => {
     try {
@@ -77,8 +90,17 @@ export default function PurchaseRequestDetailPage() {
     setActionLoading(true)
     try {
       const res = await fetch(`/api/purchase-requests/${id}/submit`, { method: "POST" })
-      if (res.ok) fetchReq()
-    } catch (e) { console.error(e) }
+      const json = await res.json()
+      if (res.ok) {
+        toast({ title: "Đã trình duyệt", description: `Đề nghị ${req?.code} đã được gửi đi.` })
+        fetchReq()
+      } else {
+        toast({ title: "Lỗi", description: json.error || "Không thể trình duyệt", variant: "destructive" })
+      }
+    } catch (e) {
+      console.error(e)
+      toast({ title: "Lỗi", description: "Kết nối server thất bại", variant: "destructive" })
+    }
     finally { setActionLoading(false) }
   }
 
@@ -89,8 +111,19 @@ export default function PurchaseRequestDetailPage() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: approveAction, comment: approveComment || null }),
       })
-      if (res.ok) { setApproveOpen(false); fetchReq() }
-    } catch (e) { console.error(e) }
+      const json = await res.json()
+      if (res.ok) {
+        const actionLabels = { approve: "Đã duyệt", reject: "Đã từ chối", return: "Đã trả lại" }
+        toast({ title: actionLabels[approveAction], description: `Đề nghị ${req?.code} đã được xử lý.` })
+        setApproveOpen(false)
+        fetchReq()
+      } else {
+        toast({ title: "Lỗi", description: json.error || "Thao tác thất bại", variant: "destructive" })
+      }
+    } catch (e) {
+      console.error(e)
+      toast({ title: "Lỗi", description: "Kết nối server thất bại", variant: "destructive" })
+    }
     finally { setActionLoading(false) }
   }
 
@@ -169,7 +202,7 @@ export default function PurchaseRequestDetailPage() {
             </div>
           )}
 
-          <Accordion type="multiple" defaultValue={["general", "items"]} className="w-full space-y-4">
+          <Accordion type="multiple" defaultValue={["general", "items", "attachments"]} className="w-full space-y-4">
             <AccordionItem value="general" className="bg-card border rounded-xl shadow-sm overflow-hidden px-4">
               <AccordionTrigger className="hover:no-underline py-4 font-semibold">
                 Thông tin chung
@@ -223,6 +256,28 @@ export default function PurchaseRequestDetailPage() {
                     </TableBody>
                   </Table>
                 </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* Chứng từ đính kèm */}
+            <AccordionItem value="attachments" className="bg-card border rounded-xl shadow-sm overflow-hidden px-4">
+              <AccordionTrigger className="hover:no-underline py-4 font-semibold">
+                Chứng từ đính kèm
+                {req.attachments && req.attachments.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 h-5 text-[10px] px-1.5">
+                    {req.attachments.length}
+                  </Badge>
+                )}
+              </AccordionTrigger>
+              <AccordionContent className="pt-4 pb-4 border-t">
+                <AttachmentPanel
+                  entityType="purchaseRequest"
+                  entityId={req.id}
+                  attachments={req.attachments || []}
+                  allowedTypes={PURCHASE_ALLOWED_TYPES}
+                  canUpload={isOwner && !req.isLocked}
+                  onChanged={fetchReq}
+                />
               </AccordionContent>
             </AccordionItem>
           </Accordion>
