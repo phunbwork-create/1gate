@@ -3,7 +3,7 @@
 import { Box, Check, CheckCircle2, CircleDashed, Clock, FileCheck, RotateCcw, User, UserCircle, X, XCircle } from "lucide-react"
 import { LEGACY_ROLE_LABELS } from "@/types/domain"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { calculateCurrentStepIndex } from "@/lib/workflow"
+import { calculateCurrentStepIndex } from "@/lib/workflow-utils"
 
 interface ApprovalStep {
   id: string

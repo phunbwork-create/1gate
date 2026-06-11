@@ -1,7 +1,7 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
-import { RequestStatus, PaymentPlanStatus } from "@prisma/client"
+import { RequestStatus, PaymentPlanStatus } from "@/types/domain"
 
 const REQUEST_STATUS_CONFIG: Record<RequestStatus, { label: string; className: string }> = {
   Draft: { label: "Nháp", className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },

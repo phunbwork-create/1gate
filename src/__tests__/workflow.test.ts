@@ -1,4 +1,4 @@
-import { calculateCurrentStepIndex } from "@/lib/workflow"
+import { calculateCurrentStepIndex } from "@/lib/workflow-utils"
 
 describe("Workflow Logic - calculateCurrentStepIndex", () => {
   it("should return 0 when there are no steps", () => {
