@@ -1,13 +1,15 @@
 "use client"
 
 import { Box, Check, CheckCircle2, CircleDashed, Clock, FileCheck, RotateCcw, User, UserCircle, X, XCircle } from "lucide-react"
-import { Role } from "@prisma/client"
+import { LEGACY_ROLE_LABELS } from "@/types/domain"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { calculateCurrentStepIndex } from "@/lib/workflow"
 
 interface ApprovalStep {
   id: string
-  role: Role
+  role?: string           // Legacy: role name string
+  roleId?: string | null  // New: dynamic role ID
+  roleName?: string | null // New: denormalized role name
   stepOrder: number
   action: string | null
   comment: string | null
@@ -16,20 +18,11 @@ interface ApprovalStep {
 }
 
 interface ExpectedApprover {
-  role: Role
+  role: string
   users: { name: string; email: string }[]
 }
 
-const ROLE_LABELS: Record<Role, string> = {
-  Admin: "Quản trị viên",
-  Staff: "Nhân viên",
-  DeptHead: "Trưởng phòng",
-  Warehouse: "Thủ kho",
-  Purchasing: "Mua sắm",
-  Accountant: "Kế toán",
-  ChiefAccountant: "Khế toán trưởng",
-  Director: "Giám đốc",
-}
+
 
 function getAvatarColors(action: string | null) {
   if (action === "approve") return "bg-emerald-100 text-emerald-600 border-emerald-200 dark:bg-emerald-950 dark:border-emerald-900"
@@ -58,7 +51,7 @@ export function ApprovalTimeline({
   expectedApprovers
 }: { 
   steps: ApprovalStep[]
-  currentChain?: Role[]
+  currentChain?: string[]
   status?: string
   expectedApprovers?: ExpectedApprover[]
 }) {
@@ -71,7 +64,7 @@ export function ApprovalTimeline({
   }
 
   // Calculate pending steps
-  let pendingRoles: Role[] = []
+  let pendingRoles: string[] = []
   if (currentChain && (status === "Submitted" || status === "PendingApproval" || status === "Draft")) {
     const currentStepIndex = calculateCurrentStepIndex(steps)
     pendingRoles = currentChain.slice(currentStepIndex)
@@ -106,7 +99,7 @@ export function ApprovalTimeline({
             <div className="pb-6 pt-1 flex-1">
               <div className="bg-muted/30 border border-border/50 rounded-xl p-3 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="font-semibold text-sm">{ROLE_LABELS[step.role]}</div>
+                  <div className="font-semibold text-sm">{step.roleName || LEGACY_ROLE_LABELS[step.role || ""] || step.role}</div>
                   <div className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                     step.action === 'approve' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400' :
                     step.action === 'reject' ? 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400' :
@@ -164,7 +157,7 @@ export function ApprovalTimeline({
               <div className="bg-card border border-orange-200/50 dark:border-orange-900/50 rounded-xl p-3 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-orange-400"></div>
                 <div className="flex items-start justify-between gap-2 pl-2">
-                  <div className="font-semibold text-sm">{ROLE_LABELS[role]}</div>
+                  <div className="font-semibold text-sm">{LEGACY_ROLE_LABELS[role] || role}</div>
                   <div className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400">
                     Đang chờ xử lý
                   </div>

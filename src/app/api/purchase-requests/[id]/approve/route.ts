@@ -60,7 +60,7 @@ export async function POST(
         data: {
           purchaseRequestId: id,
           approverId: result.user.id,
-          role: result.user.role,
+          roleName: result.user.role,
           stepOrder: currentStepIndex + 1,
           action,
           comment: comment || null,

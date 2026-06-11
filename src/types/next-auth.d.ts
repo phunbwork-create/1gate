@@ -1,12 +1,21 @@
-import { Role, CompanyType } from "@prisma/client"
+import { CompanyType } from "@prisma/client"
 
-// Extend NextAuth types
+// Extend NextAuth types for Dynamic RBAC
 declare module "next-auth" {
   interface User {
     id: string
     email: string
     name: string
-    role: Role
+    // Dynamic RBAC
+    roles: string[]
+    permissions: string[]
+    primaryRole: string
+    primaryRoleDisplay?: string
+    primaryRoleColor?: string
+    rolesData?: { id: string; name: string; displayName: string; color?: string | null; level: number; isSystem: boolean }[]
+    // Legacy compat
+    role: string
+    // Company info
     companyId: string
     companyName: string
     companyCode: string
@@ -20,7 +29,16 @@ declare module "next-auth" {
       id: string
       email: string
       name: string
-      role: Role
+      // Dynamic RBAC
+      roles: string[]
+      permissions: string[]
+      primaryRole: string
+      primaryRoleDisplay?: string
+      primaryRoleColor?: string
+      rolesData?: { id: string; name: string; displayName: string; color?: string | null; level: number; isSystem: boolean }[]
+      // Legacy compat
+      role: string
+      // Company info
       companyId: string
       companyName: string
       companyCode: string
@@ -34,7 +52,16 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     id: string
+    // Dynamic RBAC
+    roles: string[]
+    permissions: string[]
+    primaryRole: string
+    primaryRoleDisplay?: string
+    primaryRoleColor?: string
+    rolesData?: unknown[]
+    // Legacy compat
     role: string
+    // Company info
     companyId: string
     companyName: string
     companyCode: string

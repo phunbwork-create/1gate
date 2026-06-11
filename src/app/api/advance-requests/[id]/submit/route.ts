@@ -39,7 +39,7 @@ export async function POST(
 
     if (firstRole) {
       const approvers = await prisma.user.findMany({
-        where: { role: firstRole, companyId: req.companyId, isActive: true },
+        where: { role: firstRole as any, companyId: req.companyId, isActive: true },
         select: { id: true, name: true, email: true, telegramChatId: true },
       })
       const submitter = await prisma.user.findUnique({

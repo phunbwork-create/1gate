@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import prisma from "@/lib/prisma"
 import { requireAuth, success, notFound, serverError } from "@/lib/api-helpers"
-import { Role } from "@prisma/client"
+
 
 export async function GET(
   req: NextRequest,
@@ -34,21 +34,25 @@ export async function GET(
     })
 
     if (!reqDetail) return notFound("Kế hoạch thanh toán không tồn tại")
-    if (result.user.role !== "Admin" && reqDetail.companyId !== result.user.companyId) {
+    if (result.user.roles?.includes("Admin") !== true && reqDetail.companyId !== result.user.companyId) {
       return notFound("Kế hoạch thanh toán không tồn tại")
     }
 
     // Determine expected approvers
-    let expectedApprovers: { role: Role; users: { name: string; email: string }[] }[] = []
+    let expectedApprovers: { role: string; users: { name: string; email: string }[] }[] = []
     if (reqDetail.status === "PendingChiefAccountant" || reqDetail.status === "PendingDirector" || reqDetail.status === "Draft") {
-      const CHAIN: Role[] = ["ChiefAccountant", "Director"]
+      const CHAIN: string[] = ["ChiefAccountant", "Director"]
       
-      const promises = CHAIN.map(async (role) => {
+      const promises = CHAIN.map(async (roleName) => {
         const users = await prisma.user.findMany({
-          where: { role, companyId: reqDetail.companyId, isActive: true },
+          where: {
+            userRoles: { some: { role: { name: roleName } } },
+            companyId: reqDetail.companyId,
+            isActive: true,
+          },
           select: { name: true, email: true }
         })
-        return { role, users }
+        return { role: roleName, users }
       })
       
       expectedApprovers = await Promise.all(promises)

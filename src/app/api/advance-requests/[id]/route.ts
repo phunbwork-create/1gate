@@ -54,8 +54,8 @@ export async function GET(
 
     // Expected approvers: roles in chain that haven't approved yet
     const approvedRoles = req.approvalSteps
-      .filter((s: { action: string | null }) => s.action === "approve")
-      .map((s: { role: string }) => s.role)
+      .filter((s) => s.action === "approve")
+      .map((s) => s.roleName || "")
 
     const pendingRoles = chain.filter((r) => !approvedRoles.includes(r))
 

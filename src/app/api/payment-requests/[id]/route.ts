@@ -51,7 +51,7 @@ export async function GET(
     // Attach expected approvers for PIC display
     const pendingRoles = APPROVAL_CHAIN.filter((role) => {
       const approved = req.approvalSteps.filter(
-        (s) => s.action === "approve" && s.role === role
+        (s) => s.action === "approve" && s.roleName === role
       )
       return approved.length === 0
     })

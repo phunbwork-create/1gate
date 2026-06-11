@@ -1,24 +1,68 @@
-import { Role } from "@prisma/client"
+/**
+ * Dynamic RBAC Permission Engine
+ * 
+ * Thay thế hệ thống phân quyền hard-coded bằng dynamic permissions
+ * đọc từ JWT session (roles[] + permissions[]).
+ */
 
-// ─── ROLE HIERARCHY ──────────────────────────────────────────────────────────
+// ─── PERMISSION CHECK FUNCTIONS ──────────────────────────────────────────────
 
-const ROLE_HIERARCHY: Record<Role, number> = {
-  Staff: 1,
-  Warehouse: 2,
-  Purchasing: 3,
-  Accountant: 4,
-  DeptHead: 5,
-  ChiefAccountant: 6,
-  Director: 7,
-  Admin: 8,
+/**
+ * Check if user has a specific permission (resource.action)
+ */
+export function hasPermission(userPermissions: string[], resource: string, action: string = "read"): boolean {
+  // Admin full access
+  if (userPermissions.includes("admin.full")) return true
+  
+  const key = `${resource}.${action}`
+  return userPermissions.includes(key)
 }
 
-// ─── RESOURCES & ACTIONS ─────────────────────────────────────────────────────
+/**
+ * Check if user has ANY of the specified permissions
+ */
+export function hasAnyPermission(userPermissions: string[], ...perms: string[]): boolean {
+  if (userPermissions.includes("admin.full")) return true
+  return perms.some(p => userPermissions.includes(p))
+}
+
+/**
+ * Check if user has ALL of the specified permissions
+ */
+export function hasAllPermissions(userPermissions: string[], ...perms: string[]): boolean {
+  if (userPermissions.includes("admin.full")) return true
+  return perms.every(p => userPermissions.includes(p))
+}
+
+/**
+ * Check if user can access admin panel
+ */
+export function canAccessAdmin(userPermissions: string[]): boolean {
+  return userPermissions.includes("admin.full") || userPermissions.includes("admin.access")
+}
+
+/**
+ * Check if a role can see prices (backward compat helper)
+ * Any role with paymentRequest.read or purchaseRequest.read can see prices
+ */
+export function priceVisible(userPermissions: string[]): boolean {
+  return hasAnyPermission(
+    userPermissions,
+    "paymentRequest.read",
+    "purchaseRequest.read",
+    "paymentPlan.read",
+    "advanceRequest.read",
+  )
+}
+
+// ─── SIDEBAR MENU CONFIG ─────────────────────────────────────────────────────
 
 export type Resource =
   | "user"
   | "company"
   | "department"
+  | "role"
+  | "workflow"
   | "vendor"
   | "materialItem"
   | "procurementPlan"
@@ -36,119 +80,6 @@ export type Resource =
   | "auditLog"
 
 export type Action = "create" | "read" | "update" | "delete" | "approve" | "submit" | "cancel"
-
-// ─── PERMISSION MATRIX ──────────────────────────────────────────────────────
-
-// Which roles can access each resource (for menu visibility & route protection)
-const RESOURCE_ACCESS: Record<Resource, Role[]> = {
-  dashboard: [
-    "Admin", "Staff", "DeptHead", "Warehouse", "Purchasing",
-    "Accountant", "ChiefAccountant", "Director",
-  ],
-  admin: ["Admin"],
-  user: ["Admin"],
-  company: ["Admin"],
-  department: ["Admin"],
-  vendor: ["Admin", "Purchasing", "Accountant", "ChiefAccountant"],
-  materialItem: ["Admin", "Warehouse", "Purchasing"],
-  procurementPlan: ["Staff", "DeptHead", "Director", "Admin"],
-  materialRequest: ["Staff", "DeptHead", "Warehouse", "Admin"],
-  inventoryCheck: ["Warehouse", "Admin"],
-  purchaseRequest: ["Warehouse", "Purchasing", "Accountant", "DeptHead", "Admin"],
-  paymentRequest: ["Staff", "Purchasing", "Accountant", "ChiefAccountant", "DeptHead", "Admin"],
-  advanceRequest: ["Staff", "DeptHead", "ChiefAccountant", "Director", "Admin"],
-  paymentPlan: ["ChiefAccountant", "Director", "Admin"],
-  paymentVoucher: ["Accountant", "ChiefAccountant", "Admin"],
-  settlement: ["Staff", "DeptHead", "Accountant", "ChiefAccountant", "Admin"],
-  notification: [
-    "Admin", "Staff", "DeptHead", "Warehouse", "Purchasing",
-    "Accountant", "ChiefAccountant", "Director",
-  ],
-  auditLog: ["Admin", "ChiefAccountant", "Director"],
-}
-
-// ─── CORE FUNCTIONS ──────────────────────────────────────────────────────────
-
-export interface UserSession {
-  id: string
-  role: Role
-  companyId: string
-  departmentId?: string | null
-}
-
-/**
- * Check if a user can access a resource
- */
-export function canAccess(user: UserSession, resource: Resource): boolean {
-  // Admin can do everything
-  if (user.role === "Admin") return true
-
-  const allowedRoles = RESOURCE_ACCESS[resource]
-  if (!allowedRoles) return false
-
-  return allowedRoles.includes(user.role)
-}
-
-/**
- * Check if a role can see prices
- * Warehouse and Staff below cannot see prices
- */
-export function priceVisible(role: Role): boolean {
-  return ROLE_HIERARCHY[role] >= ROLE_HIERARCHY["Purchasing"]
-}
-
-/**
- * Check if a user has a role at or above a minimum level
- */
-export function hasMinRole(userRole: Role, minRole: Role): boolean {
-  return ROLE_HIERARCHY[userRole] >= ROLE_HIERARCHY[minRole]
-}
-
-/**
- * Get the approval chain for a given entity type and amount
- */
-export function getApprovalChain(
-  entityType: "procurementPlan" | "materialRequest" | "purchaseRequest" | "paymentRequest" | "advanceRequest" | "paymentPlan" | "settlement",
-  amount?: number
-): Role[] {
-  switch (entityType) {
-    case "procurementPlan":
-      return ["DeptHead", "Director"]
-
-    case "materialRequest":
-      return ["DeptHead"]
-
-    case "purchaseRequest":
-      return ["DeptHead", "Accountant"]
-
-    case "paymentRequest":
-      return ["Accountant"]
-
-    case "advanceRequest":
-      if (!amount) return ["DeptHead"]
-      if (amount < 1_000_000) return ["DeptHead"]
-      if (amount <= 5_000_000) return ["DeptHead", "ChiefAccountant"]
-      return ["DeptHead", "ChiefAccountant", "Director"]
-
-    case "paymentPlan":
-      return ["ChiefAccountant", "Director"]
-
-    case "settlement":
-      return ["DeptHead", "Accountant"]
-
-    default:
-      return []
-  }
-}
-
-/**
- * Validate that creator is not the same as approver (anti-conflict)
- */
-export function validateNoSelfApproval(creatorId: string, approverId: string): boolean {
-  return creatorId !== approverId
-}
-
-// ─── SIDEBAR MENU CONFIG ─────────────────────────────────────────────────────
 
 export interface MenuItem {
   title: string
@@ -171,20 +102,88 @@ export const MENU_ITEMS: MenuItem[] = [
 
 export const ADMIN_MENU_ITEMS: MenuItem[] = [
   { title: "Người dùng", href: "/admin/users", icon: "Users", resource: "user" },
+  { title: "Vai trò & Quyền", href: "/admin/roles", icon: "Shield", resource: "role" },
   { title: "Công ty", href: "/admin/companies", icon: "Building2", resource: "company" },
   { title: "Phòng ban", href: "/admin/departments", icon: "Building", resource: "department" },
   { title: "Nhà cung cấp", href: "/admin/vendors", icon: "Store", resource: "vendor" },
   { title: "Vật tư", href: "/admin/materials", icon: "Boxes", resource: "materialItem" },
+  { title: "Luồng nghiệp vụ", href: "/admin/workflows", icon: "Workflow", resource: "workflow" },
 ]
 
 /**
- * Get filtered menu based on user role
+ * Get filtered menu based on user permissions
  */
-export function getMenuForRole(role: Role): { main: MenuItem[]; admin: MenuItem[] } {
-  const user: UserSession = { id: "", role, companyId: "" }
-
+export function getMenuForPermissions(permissions: string[]): { main: MenuItem[]; admin: MenuItem[] } {
   return {
-    main: MENU_ITEMS.filter((item) => canAccess(user, item.resource)),
-    admin: ADMIN_MENU_ITEMS.filter((item) => canAccess(user, item.resource)),
+    main: MENU_ITEMS.filter((item) => hasPermission(permissions, item.resource, "read")),
+    admin: ADMIN_MENU_ITEMS.filter((item) => hasPermission(permissions, item.resource, "read")),
   }
+}
+
+// ─── BACKWARD COMPAT ─────────────────────────────────────────────────────────
+
+/** @deprecated Use getMenuForPermissions instead */
+export function getMenuForRole(role: string): { main: MenuItem[]; admin: MenuItem[] } {
+  // Legacy fallback: if called with old role name, simulate permissions
+  const legacyPerms = getLegacyPermissionsForRole(role)
+  return getMenuForPermissions(legacyPerms)
+}
+
+/** Convert legacy role name to approximate permission list */
+function getLegacyPermissionsForRole(role: string): string[] {
+  const LEGACY_MAP: Record<string, string[]> = {
+    Admin: ["admin.full"],
+    Director: ["dashboard.read", "procurementPlan.read", "advanceRequest.read", "paymentPlan.read", "auditLog.read", "notification.read"],
+    ChiefAccountant: ["dashboard.read", "vendor.read", "paymentRequest.read", "advanceRequest.read", "paymentPlan.read", "paymentVoucher.read", "settlement.read", "auditLog.read", "notification.read"],
+    DeptHead: ["dashboard.read", "procurementPlan.read", "materialRequest.read", "purchaseRequest.read", "paymentRequest.read", "advanceRequest.read", "settlement.read", "notification.read"],
+    Accountant: ["dashboard.read", "vendor.read", "purchaseRequest.read", "paymentRequest.read", "paymentVoucher.read", "settlement.read", "notification.read"],
+    Purchasing: ["dashboard.read", "vendor.read", "materialItem.read", "purchaseRequest.read", "paymentRequest.read", "notification.read"],
+    Warehouse: ["dashboard.read", "materialItem.read", "materialRequest.read", "inventoryCheck.read", "purchaseRequest.read", "notification.read"],
+    Staff: ["dashboard.read", "procurementPlan.read", "materialRequest.read", "paymentRequest.read", "advanceRequest.read", "settlement.read", "notification.read"],
+  }
+  return LEGACY_MAP[role] || ["dashboard.read"]
+}
+
+// ─── SESSION HELPER TYPES ────────────────────────────────────────────────────
+
+export interface UserSession {
+  id: string
+  roles: string[]         // Role names
+  permissions: string[]   // Flattened permission keys
+  companyId: string
+  departmentId?: string | null
+  primaryRole?: string    // Highest-level role name
+}
+
+/**
+ * Check if user can access a resource (backward compat)
+ */
+export function canAccess(user: UserSession, resource: Resource): boolean {
+  return hasPermission(user.permissions, resource, "read")
+}
+
+// ─── LEGACY BACKWARD COMPAT ─────────────────────────────────────────────────
+
+/**
+ * @deprecated Legacy synchronous approval chain. Use workflow.ts getApprovalChain() instead.
+ * Kept for backward compat during migration period.
+ */
+export function getApprovalChain(entityType: string, amount?: number): string[] {
+  const LEGACY_CHAINS: Record<string, string[]> = {
+    paymentRequest: amount && amount >= 5000000
+      ? ["Accountant", "DeptHead", "ChiefAccountant", "Director"]
+      : amount && amount >= 1000000
+        ? ["Accountant", "DeptHead", "ChiefAccountant"]
+        : ["Accountant", "DeptHead"],
+    advanceRequest: amount && amount >= 5000000
+      ? ["DeptHead", "ChiefAccountant", "Director"]
+      : amount && amount >= 1000000
+        ? ["DeptHead", "ChiefAccountant"]
+        : ["DeptHead"],
+    procurementPlan: ["DeptHead", "Director"],
+    materialRequest: ["DeptHead"],
+    purchaseRequest: ["DeptHead", "Accountant"],
+    settlement: ["DeptHead", "Accountant"],
+  }
+  return LEGACY_CHAINS[entityType] || ["DeptHead"]
 }

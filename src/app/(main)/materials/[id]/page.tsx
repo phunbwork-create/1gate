@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
-import { RequestStatus, Role } from "@/types/domain"
+import { RequestStatus } from "@/types/domain"
 import { useSession } from "next-auth/react"
 import { priceVisible } from "@/lib/permissions"
 import { Button } from "@/components/ui/button"
@@ -96,11 +96,11 @@ interface MReqDetail {
     materialItem: { code: string; name: string } | null
   }[]
   approvalSteps: {
-    id: string; role: Role; stepOrder: number; action: string | null
+    id: string; role?: string; stepOrder: number; action: string | null
     comment: string | null; actedAt: string | null
     approver: { id: string; name: string }
   }[]
-  expectedApprovers?: { role: Role; users: { name: string; email: string }[] }[]
+  expectedApprovers?: { role: string; users: { name: string; email: string }[] }[]
   createdAt: string
 }
 
@@ -129,13 +129,15 @@ export default function MaterialRequestDetailPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentUser = session?.user as any
-  const userRole = (currentUser?.role as Role) || "Staff"
-  const showPrice = priceVisible(userRole)
+  const userPermissions: string[] = currentUser?.permissions || []
+  const userRoles: string[] = currentUser?.roles || [currentUser?.role || "Staff"]
+  const showPrice = priceVisible(userPermissions)
   const isOwner = currentUser?.id === req?.createdById
   const isDraft = req?.status === "Draft"
   const canSubmit = isOwner && isDraft
+  const isAdmin = userPermissions.includes("admin.full")
   const canApprove = req && ["Submitted", "PendingApproval"].includes(req.status) &&
-    currentUser && !isOwner && ["DeptHead", "Admin"].includes(currentUser.role)
+    currentUser && !isOwner && (userRoles.includes("DeptHead") || isAdmin)
 
   async function handleSubmit() {
     setActionLoading(true)

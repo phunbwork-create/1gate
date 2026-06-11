@@ -4,8 +4,8 @@ import { useState } from "react"
 import { usePathname } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import Link from "next/link"
-import { Role } from "@/types/domain"
-import { getMenuForRole } from "@/lib/permissions"
+import { LEGACY_ROLE_LABELS, LEGACY_ROLE_COLORS } from "@/types/domain"
+import { getMenuForPermissions } from "@/lib/permissions"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -47,6 +47,8 @@ import {
   LogOut,
   Settings,
   User,
+  Shield,
+  Workflow,
   type LucideIcon,
 } from "lucide-react"
 
@@ -66,31 +68,11 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Building,
   Store,
   Boxes,
+  Shield,
+  Workflow,
 }
 
-// ─── ROLE LABELS ─────────────────────────────────────────────────────────────
 
-const ROLE_LABELS: Record<Role, string> = {
-  Admin: "Quản trị viên",
-  Staff: "Nhân viên",
-  DeptHead: "Trưởng phòng",
-  Warehouse: "Thủ kho",
-  Purchasing: "Mua hàng",
-  Accountant: "Kế toán",
-  ChiefAccountant: "Kế toán trưởng",
-  Director: "Giám đốc",
-}
-
-const ROLE_COLORS: Record<Role, string> = {
-  Admin: "bg-red-500/10 text-red-400 border-red-500/20",
-  Staff: "bg-slate-500/10 text-slate-400 border-slate-500/20",
-  DeptHead: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  Warehouse: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  Purchasing: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  Accountant: "bg-violet-500/10 text-violet-400 border-violet-500/20",
-  ChiefAccountant: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-  Director: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-}
 
 // ─── SIDEBAR CONTENT ─────────────────────────────────────────────────────────
 
@@ -104,12 +86,13 @@ function SidebarContent({
   collapsed: boolean
   setCollapsed: (val: boolean) => void
   pathname: string
-  menu: ReturnType<typeof getMenuForRole>
+  menu: ReturnType<typeof getMenuForPermissions>
   session: ReturnType<typeof useSession>["data"]
 }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const user = session?.user as any
-  const role = user?.role as Role
+  const roles: { name: string; displayName: string; color?: string }[] = user?.rolesData || []
+  const primaryRoleDisplay = user?.primaryRoleDisplay || LEGACY_ROLE_LABELS[user?.primaryRole] || user?.primaryRole || ""
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -269,10 +252,25 @@ function SidebarContent({
               <span className="text-xs font-normal text-muted-foreground">{user?.email}</span>
               <Badge
                 variant="outline"
-                className={`mt-1.5 w-fit text-[10px] ${role ? ROLE_COLORS[role] : ""}`}
+                className={`mt-1.5 w-fit text-[10px] ${
+                  user?.primaryRole ? (LEGACY_ROLE_COLORS[user.primaryRole] || "") : ""
+                }`}
               >
-                {role ? ROLE_LABELS[role] : ""}
+                {primaryRoleDisplay}
               </Badge>
+              {roles.length > 1 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {roles.filter(r => r.name !== user?.primaryRole).map(r => (
+                    <Badge
+                      key={r.name}
+                      variant="outline"
+                      className={`text-[9px] ${LEGACY_ROLE_COLORS[r.name] || ""}`}
+                    >
+                      {r.displayName || LEGACY_ROLE_LABELS[r.name] || r.name}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild className="cursor-pointer">
@@ -365,9 +363,9 @@ export default function MainLayout({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentUser = session?.user as any
-  const role = (currentUser?.role as Role) || "Staff"
+  const permissions: string[] = currentUser?.permissions || []
   const companyName = currentUser?.companyName || ""
-  const menu = getMenuForRole(role)
+  const menu = getMenuForPermissions(permissions)
 
   return (
     <div className="flex h-screen bg-background">

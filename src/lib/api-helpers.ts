@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { Role } from "@prisma/client"
+import { hasAnyPermission } from "@/lib/permissions"
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
 export interface ApiUser {
   id: string
   name: string
-  role: Role
+  roles: string[]           // Dynamic role names
+  permissions: string[]     // Flattened permission keys
+  primaryRole: string       // Highest-level role name
   companyId: string
   departmentId?: string | null
+  // Legacy backward compat
+  role: string              // = primaryRole
 }
 
 // ─── AUTH GUARD ──────────────────────────────────────────────────────────────
@@ -23,12 +27,21 @@ export async function getAuthUser(): Promise<ApiUser | null> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const u = session.user as any
+  
+  const roles = u.roles || (u.role ? [u.role] : [])
+  const permissions = u.permissions || []
+  const primaryRole = u.primaryRole || u.role || roles[0] || ""
+
   return {
     id: u.id,
     name: u.name ?? "",
-    role: u.role as Role,
+    roles,
+    permissions,
+    primaryRole,
     companyId: u.companyId,
     departmentId: u.departmentId,
+    // Legacy compat
+    role: primaryRole,
   }
 }
 
@@ -46,15 +59,41 @@ export async function requireAuth(): Promise<
 }
 
 /**
- * Require specific roles. Returns user or error response.
+ * Require specific permissions. Returns user or error response.
+ * Usage: requirePermission("paymentRequest.create", "paymentRequest.update")
+ * User needs ANY of the listed permissions (OR logic).
  */
-export async function requireRole(...roles: Role[]): Promise<
+export async function requirePermission(...perms: string[]): Promise<
   { user: ApiUser; error?: never } | { user?: never; error: NextResponse }
 > {
   const result = await requireAuth()
   if (result.error) return result
 
-  if (!roles.includes(result.user.role) && result.user.role !== "Admin") {
+  if (!hasAnyPermission(result.user.permissions, ...perms)) {
+    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
+  }
+  return { user: result.user }
+}
+
+/**
+ * Require specific role names (backward compat).
+ * User needs ANY of the listed roles (OR logic).
+ * Admin role always passes.
+ */
+export async function requireRole(...roleNames: string[]): Promise<
+  { user: ApiUser; error?: never } | { user?: never; error: NextResponse }
+> {
+  const result = await requireAuth()
+  if (result.error) return result
+
+  const userRoles = result.user.roles
+  
+  // Admin always passes
+  if (userRoles.includes("Admin")) return { user: result.user }
+  
+  // Check if user has any of the required roles
+  const hasRole = roleNames.some(r => userRoles.includes(r))
+  if (!hasRole) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
   }
   return { user: result.user }
@@ -76,6 +115,10 @@ export function badRequest(message: string) {
 
 export function notFound(message = "Not found") {
   return NextResponse.json({ error: message }, { status: 404 })
+}
+
+export function forbidden(message = "Forbidden") {
+  return NextResponse.json({ error: message }, { status: 403 })
 }
 
 export function serverError(message = "Internal server error") {

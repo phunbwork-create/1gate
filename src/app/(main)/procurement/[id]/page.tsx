@@ -5,7 +5,6 @@ import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { priceVisible } from "@/lib/permissions"
-import { Role } from "@/types/domain"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -97,12 +96,14 @@ export default function ContractDetailPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currentUser = session?.user as any
-  const userRole = (currentUser?.role as Role) || "Staff"
-  const showPrice = priceVisible(userRole)
+  const userPermissions: string[] = currentUser?.permissions || []
+  const userRole = currentUser?.primaryRole || currentUser?.role || "Staff"
+  const showPrice = priceVisible(userPermissions)
   const isOwner = currentUser?.id === plan?.createdById
   const isDraft = plan?.status === "Draft"
-  const canCancel = (isOwner || userRole === "Admin") && isDraft
-  const canEdit = (userRole === "DeptHead" || userRole === "Admin") || (isOwner && isDraft)
+  const isAdmin = userPermissions.includes("admin.full")
+  const canCancel = (isOwner || isAdmin) && isDraft
+  const canEdit = userRole === "DeptHead" || isAdmin || (isOwner && isDraft)
 
   async function handleCancel() {
     setCancelling(true)

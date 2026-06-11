@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server"
 import prisma from "@/lib/prisma"
-import { requireRole, success, badRequest, serverError, getPaginationParams, getSearchParam } from "@/lib/api-helpers"
+import { requirePermission, success, badRequest, serverError, getPaginationParams, getSearchParam } from "@/lib/api-helpers"
 import { createUserSchema } from "@/schemas/admin.schema"
 import { hash } from "bcryptjs"
 
 // ─── GET /api/admin/users ────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
-  const result = await requireRole("Admin")
+  const result = await requirePermission("admin.full", "user.read")
   if (result.error) return result.error
 
   try {
@@ -25,7 +25,9 @@ export async function GET(req: NextRequest) {
         { email: { contains: search, mode: "insensitive" } },
       ]
     }
-    if (role) where.role = role
+    if (role) {
+      where.userRoles = { some: { role: { name: role } } }
+    }
     if (companyId) where.companyId = companyId
     if (active !== undefined) where.isActive = active === "true"
 
@@ -35,6 +37,11 @@ export async function GET(req: NextRequest) {
         include: {
           company: { select: { id: true, name: true, code: true } },
           department: { select: { id: true, name: true } },
+          userRoles: {
+            include: {
+              role: { select: { id: true, name: true, displayName: true, color: true, level: true } },
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
         skip,
@@ -43,9 +50,15 @@ export async function GET(req: NextRequest) {
       prisma.user.count({ where }),
     ])
 
-    // Exclude passwordHash from response
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const sanitized = users.map(({ passwordHash, ...u }) => u)
+    // Exclude passwordHash, format roles
+    const sanitized = users.map(({ passwordHash, userRoles, ...u }) => ({
+      ...u,
+      roles: userRoles
+        .map(ur => ur.role)
+        .sort((a, b) => b.level - a.level),
+      // Legacy compat: primary role
+      role: userRoles.sort((a, b) => b.role.level - a.role.level)[0]?.role?.name || null,
+    }))
 
     return success({
       data: sanitized,
@@ -59,7 +72,7 @@ export async function GET(req: NextRequest) {
 
 // ─── POST /api/admin/users ───────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  const result = await requireRole("Admin")
+  const result = await requirePermission("admin.full", "user.create")
   if (result.error) return result.error
 
   try {
@@ -70,12 +83,21 @@ export async function POST(req: NextRequest) {
       return badRequest(parsed.error.issues.map((e) => e.message).join(", "))
     }
 
-    const { password, ...data } = parsed.data
+    const { password, roleIds, ...data } = parsed.data
 
     // Check duplicate email
     const exists = await prisma.user.findUnique({ where: { email: data.email } })
     if (exists) {
       return badRequest("Email đã tồn tại trong hệ thống")
+    }
+
+    // Validate roleIds exist
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } },
+      select: { id: true, name: true, displayName: true, color: true, level: true },
+    })
+    if (roles.length !== roleIds.length) {
+      return badRequest("Một hoặc nhiều vai trò không hợp lệ")
     }
 
     const passwordHash = await hash(password, 12)
@@ -84,16 +106,27 @@ export async function POST(req: NextRequest) {
       data: {
         ...data,
         passwordHash,
+        userRoles: {
+          create: roleIds.map(roleId => ({ roleId })),
+        },
       },
       include: {
         company: { select: { id: true, name: true, code: true } },
         department: { select: { id: true, name: true } },
+        userRoles: {
+          include: {
+            role: { select: { id: true, name: true, displayName: true, color: true, level: true } },
+          },
+        },
       },
     })
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { passwordHash: _hash, ...sanitized } = user
-    return success(sanitized, 201)
+    const { passwordHash: _hash, userRoles, ...sanitized } = user
+    return success({
+      ...sanitized,
+      roles: userRoles.map(ur => ur.role).sort((a, b) => b.level - a.level),
+    }, 201)
   } catch (error) {
     console.error("POST /api/admin/users error:", error)
     return serverError()

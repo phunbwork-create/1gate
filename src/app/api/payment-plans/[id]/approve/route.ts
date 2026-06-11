@@ -62,7 +62,7 @@ export async function POST(
         data: {
           paymentPlanId: id,
           approverId: result.user.id,
-          role: expectedRole,
+          roleName: expectedRole,
           stepOrder: plan.approvalSteps.length + 1,
           action,
           comment: comment || null,

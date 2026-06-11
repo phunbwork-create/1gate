@@ -4,13 +4,13 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // ─── ENUMS ────────────────────────────────────────────────────────────────────
 
-enum Role {
+// ─── LEGACY ENUM (giữ lại cho migration, sẽ remove sau) ───────────────────
+// Hệ thống mới dùng bảng Role động bên dưới. Field User.role sẽ được migrate sang UserRole.
+enum LegacyRole {
   Admin
   Staff
   DeptHead
@@ -20,6 +20,7 @@ enum Role {
   ChiefAccountant
   Director
 }
+
 
 enum CompanyType {
   HO
@@ -108,6 +109,7 @@ model Company {
   paymentPlans     PaymentPlan[]
   materialItems    MaterialItem[]
   vendors          Vendor[]
+  workflowConfigs  WorkflowConfig[]
 }
 
 model Department {
@@ -129,7 +131,7 @@ model User {
   email          String   @unique
   name           String
   passwordHash   String
-  role           Role
+  role           LegacyRole?   // Legacy field — sẽ migrate sang UserRole
   companyId      String
   departmentId   String?
   telegramChatId String?
@@ -139,6 +141,8 @@ model User {
 
   company    Company     @relation(fields: [companyId], references: [id])
   department Department? @relation(fields: [departmentId], references: [id])
+
+  userRoles   UserRole[] // Dynamic RBAC: user can have multiple roles
 
   createdProcurementPlans ProcurementPlan[] @relation("PlanCreator")
   createdMaterialRequests MaterialRequest[] @relation("MatReqCreator")
@@ -567,7 +571,8 @@ model SettlementItem {
 model ApprovalStep {
   id         String    @id @default(cuid())
   approverId String
-  role       Role
+  roleId     String?   // Dynamic RBAC: references Role table
+  roleName   String?   // Denormalized role name for display/audit
   stepOrder  Int
   action     String?
   comment    String?
@@ -681,4 +686,102 @@ model CancellationRecord {
   cancelledBy String
   reason      String
   cancelledAt DateTime @default(now())
+}
+
+// ─── DYNAMIC RBAC ─────────────────────────────────────────────────────────────
+// Thay thế enum Role cứng bằng hệ thống phân quyền động
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique          // VD: "Admin", "Accountant", "CustomRole1"
+  displayName String                    // VD: "Quản trị viên", "Kế toán"
+  description String?
+  color       String?                   // CSS color cho badge (VD: "#ef4444")
+  level       Int      @default(0)      // Hierarchy level cho sorting/priority
+  isSystem    Boolean  @default(false)  // true = role hệ thống, không xóa được
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions   RolePermission[]
+  userRoles     UserRole[]
+  workflowSteps WorkflowStep[]
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  resource    String                    // VD: "paymentRequest", "dashboard"
+  action      String                    // VD: "create", "read", "approve"
+  displayName String                    // VD: "Tạo ĐN Thanh toán"
+  group       String?                   // Nhóm hiển thị: "Thanh toán", "Kho vận"
+  description String?
+
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action])
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model UserRole {
+  id         String   @id @default(cuid())
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+}
+
+// ─── DYNAMIC WORKFLOW ENGINE ──────────────────────────────────────────────────
+// Cấu hình luồng phê duyệt động cho từng loại đề xuất, theo từng công ty
+
+model WorkflowConfig {
+  id          String   @id @default(cuid())
+  entityType  String                     // "paymentRequest", "advanceRequest", ...
+  name        String                     // "Luồng thanh toán mặc định"
+  description String?
+  companyId   String                     // Mỗi company có config riêng
+  isActive    Boolean  @default(true)
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company  @relation(fields: [companyId], references: [id])
+  steps   WorkflowStep[]
+
+  @@unique([entityType, companyId])
+}
+
+model WorkflowStep {
+  id               String  @id @default(cuid())
+  workflowConfigId String
+  stepOrder        Int
+  name             String                // "Trưởng BP phê duyệt"
+  type             String                // "start" | "approve" | "check" | "process" | "end"
+  actorRoleId      String                // Role nào xử lý step này
+  icon             String?               // Emoji icon
+  description      String?
+
+  // Điều kiện kích hoạt
+  conditionType    String  @default("always")  // "always" | "condition"
+  conditionParam   String?              // "amount", "inventory", "files"
+  conditionOp      String?              // ">=", "<", "=="
+  conditionValue   String?              // "5000000", "lack", "full"
+
+  workflowConfig WorkflowConfig @relation(fields: [workflowConfigId], references: [id], onDelete: Cascade)
+  actorRole      Role           @relation(fields: [actorRoleId], references: [id])
+
+  @@unique([workflowConfigId, stepOrder])
 }
