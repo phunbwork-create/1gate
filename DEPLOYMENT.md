@@ -151,17 +151,23 @@ docker compose ps
 curl http://localhost:3000/login
 ```
 
-### 3.6. Tạo tài khoản Admin (Lần đầu)
+### 3.6. Seed dữ liệu lần đầu (CHẠY ĐÚNG 2 BƯỚC, ĐÚNG THỨ TỰ)
 
 ```bash
-docker compose exec app sh -c "npx tsx prisma/seed.ts"
+# B1: Dữ liệu nền (công ty, phòng ban, user gồm admin)
+docker compose exec app npx tsx prisma/seed.ts
+
+# B2: RBAC (vai trò, quyền, gán vai trò cho user, luồng duyệt) — BẮT BUỘC,
+#     nếu bỏ qua thì đăng nhập sẽ thiếu menu Quản trị / trang RBAC trống
+docker compose exec app npx tsx prisma/seed-rbac.ts
 ```
 
 Tài khoản mặc định:
-- Email: `admin@1gate.app`
-- Password: `Admin@123`
+- Email: `admin@1gate.vn`
+- Password: `123456`
 
 > ⚠️ **Đổi mật khẩu admin ngay sau khi đăng nhập lần đầu!**
+> ⚠️ Chỉ seed 1 lần lúc khởi tạo; các lần nâng cấp sau KHÔNG seed lại.
 
 ---
 
