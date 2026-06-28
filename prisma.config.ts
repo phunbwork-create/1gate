@@ -10,6 +10,16 @@ export default defineConfig({
     seed: "npx tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Prisma CLI (migrate/db/studio) URL — picked per environment:
+    //  • Local dev uses Prisma Postgres ("prisma+postgres://" in DATABASE_URL):
+    //    the migration engine must speak that protocol, so use DATABASE_URL.
+    //  • On Vercel/prod DATABASE_URL is the Neon *pooled* URL (pgbouncer), whose
+    //    transaction-mode pooling breaks migration advisory locks — so fall back
+    //    to DIRECT_DATABASE_URL (the non-pooler endpoint).
+    // The app runtime connects separately via src/lib/prisma.ts, so this only
+    // affects CLI commands (migrate deploy/dev/resolve, db, studio).
+    url: (process.env["DATABASE_URL"] || "").startsWith("prisma+postgres")
+      ? process.env["DATABASE_URL"]
+      : process.env["DIRECT_DATABASE_URL"] || process.env["DATABASE_URL"],
   },
 });

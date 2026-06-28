@@ -204,7 +204,23 @@ def create_departments(company_ids):
     return dept_ids
 
 
-def create_users(company_ids, dept_ids):
+def fetch_roles():
+    """Fetch the Dynamic-RBAC roles and build a {role_name: roleId} map.
+
+    Required since the RBAC migration: POST/PATCH /api/admin/users now expects
+    `roleIds: [<id>]` instead of the legacy `role: "<name>"` string.
+    """
+    print("\n🔐 Fetching roles for RBAC mapping...")
+    status, result = api_request("GET", "/api/admin/roles?limit=100")
+    if status != 200:
+        print(f"  ❌ Failed to fetch roles: {status} {result}")
+        return {}
+    role_map = {r["name"]: r["id"] for r in result.get("data", [])}
+    print(f"  ✅ Loaded {len(role_map)} roles: {', '.join(role_map.keys())}")
+    return role_map
+
+
+def create_users(company_ids, dept_ids, role_map):
     """Create users with proper roles."""
     print("\n👥 Creating users...")
 
@@ -374,11 +390,16 @@ def create_users(company_ids, dept_ids):
 
         dept_id = dept_ids.get(u["deptKey"])
 
+        role_id = role_map.get(u["role"])
+        if not role_id:
+            print(f"  ⚠️  Skip {u['name']} - role '{u['role']}' not found in RBAC roles")
+            continue
+
         payload = {
             "name": u["name"],
             "email": u["email"],
             "password": "123456",
-            "role": u["role"],
+            "roleIds": [role_id],
             "companyId": company_id,
         }
         if dept_id:
@@ -405,7 +426,7 @@ def create_users(company_ids, dept_ids):
             if user_id:
                 patch_payload = {
                     "name": u["name"],
-                    "role": u["role"],
+                    "roleIds": [role_id],
                     "companyId": company_id,
                 }
                 if dept_id:
@@ -470,7 +491,13 @@ if __name__ == "__main__":
         exit(1)
 
     dept_ids = create_departments(company_ids)
-    create_users(company_ids, dept_ids)
+
+    role_map = fetch_roles()
+    if not role_map:
+        print("\n❌ Aborting: No RBAC roles found. Run `npx tsx prisma/seed-rbac.ts` first.")
+        exit(1)
+
+    create_users(company_ids, dept_ids, role_map)
     verify()
 
     print("\n" + "=" * 60)
