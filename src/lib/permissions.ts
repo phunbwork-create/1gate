@@ -130,7 +130,7 @@ export function getMenuForRole(role: string): { main: MenuItem[]; admin: MenuIte
 }
 
 /** Convert legacy role name to approximate permission list */
-function getLegacyPermissionsForRole(role: string): string[] {
+export function getLegacyPermissionsForRole(role: string): string[] {
   const LEGACY_MAP: Record<string, string[]> = {
     Admin: ["admin.full"],
     Director: ["dashboard.read", "procurementPlan.read", "advanceRequest.read", "paymentPlan.read", "auditLog.read", "notification.read"],
